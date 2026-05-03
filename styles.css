@@ -18,7 +18,7 @@ If your plugin does not need CSS, delete this file.
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 3px 10px;
+	padding: 2px 6px 2px 10px;
 	background-color: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 4px 4px 0 0;
@@ -38,15 +38,60 @@ If your plugin does not need CSS, delete this file.
 	flex: 1;
 }
 
+/* 右侧按钮组 */
+.cbf-btn-group {
+	display: flex;
+	align-items: center;
+	gap: 0;
+	margin-left: 8px;
+}
+
+/* 将 Obsidian 原生复制按钮融入标题栏 */
+.cbf-header .copy-code-button {
+	position: static !important;
+	opacity: 1 !important;
+	display: flex !important;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	border-radius: 0;
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--text-muted);
+	box-shadow: none;
+}
+
+.cbf-header .copy-code-button:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.cbf-header .cbf-copy-button svg,
+.cbf-header .cbf-copy-button lucide-icon,
+.cbf-header .cbf-copy-button .svg-icon {
+	width: 16px;
+	height: 16px;
+	stroke-width: 2;
+}
+
 /* 折叠按钮 */
 .cbf-toggle {
 	background: none;
 	border: none;
 	cursor: pointer;
-	padding: 2px 6px;
-	border-radius: 3px;
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	border-radius: 0;
 	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	line-height: 1;
+	border-left: 1px solid var(--background-modifier-border);
 }
 
 .cbf-toggle:hover {
@@ -55,7 +100,7 @@ If your plugin does not need CSS, delete this file.
 }
 
 .cbf-arrow {
-	font-size: 0.7em;
+	font-size: 14px;
 }
 
 /* 代码块与标题栏无缝拼接 */
