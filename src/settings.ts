@@ -3,10 +3,12 @@ import MyPlugin from "./main";
 
 export interface MyPluginSettings {
 	mySetting: string;
+	collapseByDefault: boolean;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+	mySetting: 'default',
+	collapseByDefault: false,
 }
 
 export class SampleSettingTab extends PluginSettingTab {
@@ -23,13 +25,12 @@ export class SampleSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+			.setName('默认折叠代码块')
+			.setDesc('开启后，所有代码块默认以折叠状态显示（重新打开文件后生效）')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.collapseByDefault)
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.collapseByDefault = value;
 					await this.plugin.saveSettings();
 				}));
 	}

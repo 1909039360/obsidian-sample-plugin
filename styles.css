@@ -6,3 +6,65 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+/* ── 代码块折叠功能 ─────────────────────────────────────────── */
+
+.cbf-wrapper {
+	margin: 1em 0;
+}
+
+/* 标题栏 */
+.cbf-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 3px 10px;
+	background-color: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px 4px 0 0;
+	user-select: none;
+}
+
+/* 折叠时，标题栏四角全圆 */
+.cbf-wrapper.cbf-collapsed .cbf-header {
+	border-radius: 4px;
+}
+
+/* 语言标签 */
+.cbf-lang {
+	font-size: 0.78em;
+	font-family: var(--font-monospace);
+	color: var(--text-muted);
+	flex: 1;
+}
+
+/* 折叠按钮 */
+.cbf-toggle {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 2px 6px;
+	border-radius: 3px;
+	color: var(--text-muted);
+	line-height: 1;
+}
+
+.cbf-toggle:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.cbf-arrow {
+	font-size: 0.7em;
+}
+
+/* 代码块与标题栏无缝拼接 */
+.cbf-wrapper pre {
+	margin-top: 0 !important;
+	border-radius: 0 0 4px 4px;
+}
+
+/* 折叠时隐藏代码内容 */
+.cbf-wrapper.cbf-collapsed pre {
+	display: none;
+}
