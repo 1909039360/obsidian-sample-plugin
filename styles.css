@@ -103,6 +103,46 @@ If your plugin does not need CSS, delete this file.
 	font-size: 14px;
 }
 
+.cbf-editor-toggle-host {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 10px;
+	vertical-align: middle;
+}
+
+.cbf-editor-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	cursor: pointer;
+	line-height: 1;
+	box-shadow: none;
+	transition: background-color 120ms ease, color 120ms ease,
+		border-color 120ms ease;
+}
+
+.cbf-editor-toggle:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.cbf-editor-toggle.is-collapsed {
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+.cbf-editor-toggle-icon {
+	font-size: 13px;
+	line-height: 1;
+}
+
 /* 代码块与标题栏无缝拼接 */
 .cbf-wrapper pre {
 	margin-top: 0 !important;
