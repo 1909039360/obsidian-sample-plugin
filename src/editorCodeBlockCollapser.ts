@@ -428,27 +428,36 @@ function buildToggleDecorations(
 			continue;
 		}
 
+		const isSelected = selectionStore.isSelected(
+			createCodeBlockContext({
+				sourcePath: state.field(editorInfoField, false)?.file?.path ?? "",
+				startLine: block.startLine,
+				endLine: block.endLine,
+				language: block.language,
+				content: state.doc.sliceString(block.startPos, block.endPos),
+				mode: "live-preview",
+			}).id
+		);
+
 		builder.add(
 			block.startLineTo,
 			block.startLineTo,
 			Decoration.widget({
-				widget: new FoldToggleWidget(
-					block,
-					selectionStore.isSelected(
-						createCodeBlockContext({
-							sourcePath: state.field(editorInfoField, false)?.file?.path ?? "",
-							startLine: block.startLine,
-							endLine: block.endLine,
-							language: block.language,
-							content: state.doc.sliceString(block.startPos, block.endPos),
-							mode: "live-preview",
-						}).id
-					),
-					selectionStore
-				),
+				widget: new FoldToggleWidget(block, isSelected, selectionStore),
 				side: 1,
 			})
 		);
+
+		if (block.endLine > block.startLine) {
+			builder.add(
+				block.endPos,
+				block.endPos,
+				Decoration.widget({
+					widget: new FoldToggleWidget(block, isSelected, selectionStore),
+					side: 1,
+				})
+			);
+		}
 	}
 
 	return builder.finish();
