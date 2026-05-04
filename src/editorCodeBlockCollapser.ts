@@ -28,7 +28,8 @@ class FoldToggleWidget extends WidgetType {
 	constructor(
 		private readonly block: CodeBlockPosition,
 		private readonly isSelected: boolean,
-		private readonly selectionStore: CodeBlockSelectionStore
+		private readonly selectionStore: CodeBlockSelectionStore,
+		private readonly isBottom: boolean = false
 	) {
 		super();
 	}
@@ -38,7 +39,8 @@ class FoldToggleWidget extends WidgetType {
 			other.block.startPos === this.block.startPos &&
 			other.block.endPos === this.block.endPos &&
 			other.block.language === this.block.language &&
-			other.isSelected === this.isSelected
+			other.isSelected === this.isSelected &&
+			other.isBottom === this.isBottom
 		);
 	}
 
@@ -61,7 +63,7 @@ class FoldToggleWidget extends WidgetType {
 
 		const icon = document.createElement("span");
 		icon.className = "cbf-editor-toggle-icon";
-		icon.textContent = "▾";
+		icon.textContent = this.isBottom ? "▴" : "▾";
 		button.appendChild(icon);
 
 		button.addEventListener("mousedown", (event) => {
@@ -443,7 +445,7 @@ function buildToggleDecorations(
 			block.startLineTo,
 			block.startLineTo,
 			Decoration.widget({
-				widget: new FoldToggleWidget(block, isSelected, selectionStore),
+				widget: new FoldToggleWidget(block, isSelected, selectionStore, false),
 				side: 1,
 			})
 		);
@@ -453,7 +455,7 @@ function buildToggleDecorations(
 				block.endPos,
 				block.endPos,
 				Decoration.widget({
-					widget: new FoldToggleWidget(block, isSelected, selectionStore),
+					widget: new FoldToggleWidget(block, isSelected, selectionStore, true),
 					side: 1,
 				})
 			);
