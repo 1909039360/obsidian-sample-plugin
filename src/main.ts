@@ -73,6 +73,19 @@ export default class MyPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'insert-ai-question-markers',
+			name: 'Insert AI Question Markers (////)',
+			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: '/' }],
+			editorCallback: (editor: Editor) => {
+				const cursor = editor.getCursor();
+				// Insert //// at current cursor position
+				editor.replaceRange('////', cursor);
+				// Move cursor back by 2 characters to be exactly in the middle: //|//
+				editor.setCursor({ line: cursor.line, ch: cursor.ch + 2 });
+			}
+		});
+
+		this.addCommand({
 			id: 'ai-completion',
 			name: 'AI Completion (DashScope)',
 			hotkeys: [{ modifiers: ['Mod'], key: 'Enter' }], // Mod = Ctrl (Win/Linux) 或者 Cmd (Mac)
