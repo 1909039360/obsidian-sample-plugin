@@ -74,10 +74,13 @@ class FoldToggleWidget extends WidgetType {
 			event.preventDefault();
 			event.stopPropagation();
 			view.dispatch({
-				effects: toggleFoldEffect.of({
-					from: this.block.startPos,
-					to: this.block.endPos,
-				}),
+				effects: [
+					toggleFoldEffect.of({
+						from: this.block.startPos,
+						to: this.block.endPos,
+					}),
+					...(this.isBottom ? [EditorView.scrollIntoView(this.block.startPos, { y: "center" })] : []),
+				],
 			});
 		});
 
