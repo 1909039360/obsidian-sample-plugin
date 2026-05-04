@@ -3,6 +3,7 @@ import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
 import {registerCodeBlockCollapser} from "./codeBlockCollapser";
 import {createEditorCodeBlockCollapserExtension} from "./editorCodeBlockCollapser";
 import {CodeBlockSelectionStore} from "./selectionStore";
+import {streamDashScope} from "./ai";
 
 // Remember to rename these classes and interfaces!
 
@@ -68,6 +69,85 @@ export default class MyPlugin extends Plugin {
 
 				await navigator.clipboard.writeText(formattedContexts);
 				new Notice(`已复制 ${selectedContexts.length} 个代码块上下文`);
+			}
+		});
+
+		this.addCommand({
+			id: 'ai-completion',
+			name: 'AI Completion (DashScope)',
+			hotkeys: [{ modifiers: ['Mod'], key: 'Enter' }], // Mod = Ctrl (Win/Linux) 或者 Cmd (Mac)
+			editorCallback: async (editor: Editor) => {
+				const cursor = editor.getCursor();
+				const line = editor.getLine(cursor.line);
+				const match = line.match(/\/\/(.*?)\/\/\s*$/); // 允许尾部有空格
+
+				if (!match || !match[1]) {
+					new Notice("未在游标所在行找到以 '//问题//' 格式结尾的问题。");
+					return;
+				}
+
+				const question = match[1].trim();
+				const contexts = this.selectionStore.getSelectedContexts();
+				
+				// Move to next line and start writing
+				editor.replaceRange("\n---\n\n> 思考过程...\n> ", { line: cursor.line, ch: line.length });
+				let currentLine = cursor.line + 4;
+				let currentCh = 2; // "> "
+
+				let isAnswering = false;
+
+				await streamDashScope(
+					question, 
+					contexts,
+					this.settings.dashScopeApiKey,
+					{
+						onReasoning: (chunk) => {
+							// For line breaks in reasoning block, we insert "> " to maintain quote format
+							const formattedChunk = chunk.replace(/\n/g, "\n> ");
+							editor.replaceRange(formattedChunk, { line: currentLine, ch: currentCh });
+							
+							// Update cursor position tracking
+							const lines = formattedChunk.split("\n");
+							if (lines.length > 1) {
+								currentLine += lines.length - 1;
+								const lastLine = lines[lines.length - 1];
+								currentCh = lastLine ? lastLine.length : 0;
+							} else {
+								currentCh += formattedChunk.length;
+							}
+							
+							// Scroll cursor into view (Optional)
+						},
+						onContent: (chunk) => {
+							if (!isAnswering) {
+								isAnswering = true;
+								const endQuote = "\n\n---\n\n";
+								editor.replaceRange(endQuote, { line: currentLine, ch: currentCh });
+								currentLine += 4;
+								currentCh = 0;
+							}
+
+							editor.replaceRange(chunk, { line: currentLine, ch: currentCh });
+							
+							// Update cursor tracking
+							const lines = chunk.split("\n");
+							if (lines.length > 1) {
+								currentLine += lines.length - 1;
+								const lastLine = lines[lines.length - 1];
+								currentCh = lastLine ? lastLine.length : 0;
+							} else {
+								currentCh += chunk.length;
+							}
+						},
+						onError: (error) => {
+							new Notice("AI Request Errored: " + error.message);
+						},
+						onComplete: () => {
+							editor.replaceRange("\n\n---\n", { line: currentLine, ch: currentCh });
+							// new Notice("AI 回答已完成！");
+						}
+					}
+				);
 			}
 		});
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
