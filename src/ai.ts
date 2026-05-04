@@ -12,12 +12,17 @@ export async function streamDashScope(
 	contexts: CodeBlockContext[],
 	apiKey: string,
 	enableThinking: boolean,
-	callbacks: AIStreamCallbacks
+	callbacks: AIStreamCallbacks,
+	baseUrl?: string,
+	model?: string
 ) {
 	if (!apiKey) {
-		callbacks.onError(new Error("DashScope API Key 尚未配置，请在设置中配置。"));
+		callbacks.onError(new Error("API Key 尚未配置，请在设置中配置。"));
 		return;
 	}
+
+	const resolvedBaseUrl = baseUrl?.trim() || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+	const resolvedModel = model?.trim() || 'deepseek-v4-flash';
 
 	try {
 		let systemPrompt = "你是一个强大的 AI 助手。";
@@ -28,15 +33,14 @@ export async function streamDashScope(
 		}
 		systemPrompt += "\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)\n";
 
-		const response = await window.fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
+		const response = await window.fetch(resolvedBaseUrl, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				// model: 'deepseek-v4-pro', // 也许后期变成可配置的
-				model: 'deepseek-v4-flash', 
+				model: resolvedModel,
 				messages: [
 					{ role: 'system', content: systemPrompt },
 					{ role: 'user', content: query }

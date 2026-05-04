@@ -230,7 +230,9 @@ export default class MyPlugin extends Plugin {
 							editor.replaceRange("\n\n---\n", { line: currentLine, ch: currentCh });
 							// new Notice("AI 回答已完成！");
 						}
-					}
+					},
+					this.settings.aiBaseUrl,
+					this.settings.aiModel
 				);
 			}
 		});
@@ -256,7 +258,7 @@ export default class MyPlugin extends Plugin {
 		});
 
 		// 注册 AI 提示词代码提示
-		this.registerEditorSuggest(new AIPromptSuggest(this.app));
+		this.registerEditorSuggest(new AIPromptSuggest(this.app, () => this.settings));
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));

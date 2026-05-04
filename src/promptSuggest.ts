@@ -1,6 +1,7 @@
 import { App, Editor, EditorPosition, EditorSuggest, EditorSuggestContext, EditorSuggestTriggerInfo, TFile } from 'obsidian';
+import { MyPluginSettings } from './settings';
 
-const COMMON_PROMPTS = [
+const BUILTIN_PROMPTS = [
 	"总结这段文字",
 	"解释这段代码",
 	"重构这段代码",
@@ -12,8 +13,11 @@ const COMMON_PROMPTS = [
 ];
 
 export class AIPromptSuggest extends EditorSuggest<string> {
-	constructor(app: App) {
+	private readonly getSettings: () => MyPluginSettings;
+
+	constructor(app: App, getSettings: () => MyPluginSettings) {
 		super(app);
+		this.getSettings = getSettings;
 	}
 
 	onTrigger(cursor: EditorPosition, editor: Editor, file: TFile): EditorSuggestTriggerInfo | null {
@@ -37,13 +41,20 @@ export class AIPromptSuggest extends EditorSuggest<string> {
 	}
 
 	getSuggestions(context: EditorSuggestContext): string[] {
+		const customPrompts = this.getSettings().customPrompts ?? [];
+		// 自定义提示词排在前面，再跟内置提示词（去重）
+		const allPrompts = [
+			...customPrompts,
+			...BUILTIN_PROMPTS.filter(p => !customPrompts.includes(p)),
+		];
+
 		const query = context.query.toLowerCase();
 		// 如果用户没输入任何东西（刚打出 //// 的时候），显示全部
 		if (!query) {
-			return COMMON_PROMPTS;
+			return allPrompts;
 		}
 		// 否则根据输入进行过滤
-		return COMMON_PROMPTS.filter(prompt => prompt.toLowerCase().includes(query));
+		return allPrompts.filter(prompt => prompt.toLowerCase().includes(query));
 	}
 
 	renderSuggestion(value: string, el: HTMLElement): void {

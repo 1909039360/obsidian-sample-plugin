@@ -286,3 +286,18 @@ If your plugin does not need CSS, delete this file.
 .cbf-wrapper.cbf-collapsed pre {
 	display: none;
 }
+
+/* ── 设置页样式 ─────────────────────────────────────────────── */
+
+/* API base URL 输入框宽度 */
+.cbf-wide-input {
+	width: 100%;
+}
+
+/* 自定义提示词文本区域 */
+.cbf-prompts-textarea {
+	width: 100%;
+	font-family: var(--font-monospace);
+	font-size: 0.9em;
+	resize: vertical;
+}
