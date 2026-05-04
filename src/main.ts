@@ -132,7 +132,7 @@ export default class MyPlugin extends Plugin {
 				// Move to next line and start writing
 				const enableThinking = this.settings.enableThinking;
 				if (enableThinking) {
-					editor.replaceRange("\n---\n\n```python\n思考过程...\n", { line: cursor.line, ch: newLineLength });
+					editor.replaceRange("\n---\n\n```text\n思考过程...\n", { line: cursor.line, ch: newLineLength });
 				} else {
 					editor.replaceRange("\n---\n\n", { line: cursor.line, ch: newLineLength });
 				}
