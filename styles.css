@@ -145,11 +145,14 @@ If your plugin does not need CSS, delete this file.
 }
 
 .cbf-editor-toggle-host {
+	position: absolute;
+	right: 12px;
+	top: 50%;
+	transform: translateY(-50%);
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	margin-left: 10px;
-	vertical-align: middle;
+	z-index: 5;
 }
 
 .cbf-editor-select-toggle {
