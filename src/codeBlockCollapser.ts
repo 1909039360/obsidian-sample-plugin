@@ -1,12 +1,17 @@
 import { MarkdownPostProcessorContext, Plugin } from "obsidian";
 import { MyPluginSettings } from "./settings";
+import {
+	CodeBlockSelectionStore,
+	createCodeBlockContext,
+} from "./selectionStore";
 
 export function registerCodeBlockCollapser(
 	plugin: Plugin,
-	getSettings: () => MyPluginSettings
+	getSettings: () => MyPluginSettings,
+	selectionStore: CodeBlockSelectionStore
 ): void {
 	plugin.registerMarkdownPostProcessor(
-		(element: HTMLElement, _context: MarkdownPostProcessorContext) => {
+		(element: HTMLElement, context: MarkdownPostProcessorContext) => {
 			const preElements = element.querySelectorAll<HTMLElement>(
 				"pre:not(.cbf-processed)"
 			);
@@ -44,6 +49,40 @@ export function registerCodeBlockCollapser(
 				const btnGroup = document.createElement("div");
 				btnGroup.classList.add("cbf-btn-group");
 				header.appendChild(btnGroup);
+
+				const sectionInfo = context.getSectionInfo(pre);
+				const blockContext = createCodeBlockContext({
+					sourcePath: context.sourcePath,
+					startLine: sectionInfo?.lineStart ?? 0,
+					endLine: sectionInfo?.lineEnd ?? sectionInfo?.lineStart ?? 0,
+					language,
+					content: codeEl?.textContent ?? "",
+					mode: "preview",
+				});
+
+				const selectBtn = document.createElement("button");
+				selectBtn.classList.add("cbf-select-toggle");
+				selectBtn.setAttribute("aria-label", "选择代码块作为 AI 上下文");
+
+				const selectMark = document.createElement("span");
+				selectMark.classList.add("cbf-select-box");
+				selectMark.textContent = "✓";
+				selectBtn.appendChild(selectMark);
+
+				const updateSelectionState = (selected: boolean): void => {
+					selectBtn.classList.toggle("is-selected", selected);
+					selectBtn.setAttribute("aria-pressed", String(selected));
+					selectBtn.title = selected
+						? "取消选中代码块上下文"
+						: "选中代码块上下文";
+				};
+
+				updateSelectionState(selectionStore.isSelected(blockContext.id));
+				selectBtn.addEventListener("click", () => {
+					const selected = selectionStore.toggle(blockContext);
+					updateSelectionState(selected);
+				});
+				btnGroup.appendChild(selectBtn);
 
 				// 折叠按钮
 				const toggleBtn = document.createElement("button");

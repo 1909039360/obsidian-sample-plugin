@@ -2,11 +2,13 @@ import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
 import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
 import {registerCodeBlockCollapser} from "./codeBlockCollapser";
 import {createEditorCodeBlockCollapserExtension} from "./editorCodeBlockCollapser";
+import {CodeBlockSelectionStore} from "./selectionStore";
 
 // Remember to rename these classes and interfaces!
 
 export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+	settings!: MyPluginSettings;
+	readonly selectionStore = new CodeBlockSelectionStore();
 
 	async onload() {
 		await this.loadSettings();
@@ -33,8 +35,39 @@ export default class MyPlugin extends Plugin {
 		this.addCommand({
 			id: 'replace-selected',
 			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
+			editorCallback: (editor: Editor) => {
 				editor.replaceSelection('Sample editor command');
+			}
+		});
+
+		this.addCommand({
+			id: 'copy-selected-code-block-contexts',
+			name: 'Copy selected code block contexts',
+			callback: async () => {
+				const selectedContexts = this.selectionStore.getSelectedContexts();
+				if (selectedContexts.length === 0) {
+					new Notice('暂无已选中的代码块');
+					return;
+				}
+
+				const formattedContexts = selectedContexts
+					.map((context, index) => {
+						const lineText = context.endLine > context.startLine
+							? `${context.startLine + 1}-${context.endLine + 1}`
+							: `${context.startLine + 1}`;
+
+						return [
+							`[Code Block ${index + 1}]`,
+							`File: ${context.sourcePath || 'unknown'}`,
+							`Lines: ${lineText}`,
+							`Language: ${context.language || 'code'}`,
+							context.content,
+						].join('\n');
+					})
+					.join('\n\n---\n\n');
+
+				await navigator.clipboard.writeText(formattedContexts);
+				new Notice(`已复制 ${selectedContexts.length} 个代码块上下文`);
 			}
 		});
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
@@ -62,8 +95,10 @@ export default class MyPlugin extends Plugin {
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 
 		// 注册代码块折叠功能
-		registerCodeBlockCollapser(this, () => this.settings);
-		this.registerEditorExtension(createEditorCodeBlockCollapserExtension(this.settings));
+		registerCodeBlockCollapser(this, () => this.settings, this.selectionStore);
+		this.registerEditorExtension(
+			createEditorCodeBlockCollapserExtension(this.settings, this.selectionStore)
+		);
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));

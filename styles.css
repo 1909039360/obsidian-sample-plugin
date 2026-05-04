@@ -46,6 +46,47 @@ If your plugin does not need CSS, delete this file.
 	margin-left: 8px;
 }
 
+.cbf-select-toggle {
+	background: none;
+	border: none;
+	cursor: pointer;
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-left: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.cbf-select-toggle:hover,
+.cbf-editor-select-toggle:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.cbf-select-box {
+	width: 16px;
+	height: 16px;
+	border: 1.5px solid var(--background-modifier-border-hover);
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+	line-height: 1;
+	color: transparent;
+	transition: background-color 120ms ease, border-color 120ms ease,
+		color 120ms ease;
+}
+
+.cbf-select-toggle.is-selected .cbf-select-box,
+.cbf-editor-select-toggle.is-selected .cbf-select-box {
+	background-color: var(--color-green, #2f9e44);
+	border-color: var(--color-green, #2f9e44);
+	color: #fff;
+}
+
 /* 将 Obsidian 原生复制按钮融入标题栏 */
 .cbf-header .copy-code-button {
 	position: static !important;
@@ -106,8 +147,27 @@ If your plugin does not need CSS, delete this file.
 .cbf-editor-toggle-host {
 	display: inline-flex;
 	align-items: center;
+	gap: 6px;
 	margin-left: 10px;
 	vertical-align: middle;
+}
+
+.cbf-editor-select-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	cursor: pointer;
+	line-height: 1;
+	box-shadow: none;
+	transition: background-color 120ms ease, color 120ms ease,
+		border-color 120ms ease;
 }
 
 .cbf-editor-toggle {
@@ -141,6 +201,55 @@ If your plugin does not need CSS, delete this file.
 .cbf-editor-toggle-icon {
 	font-size: 13px;
 	line-height: 1;
+}
+
+.cbf-editor-folded {
+	margin: 0.4em 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--code-background);
+	overflow: hidden;
+}
+
+.cbf-editor-folded-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 6px 4px 10px;
+	background: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.cbf-editor-folded-lang {
+	font-size: 0.78em;
+	font-family: var(--font-monospace);
+	color: var(--text-muted);
+}
+
+.cbf-editor-folded-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.cbf-editor-folded-preview {
+	margin: 0;
+	padding: 10px 12px;
+	background: transparent;
+	border: 0;
+	overflow: hidden;
+	white-space: pre-wrap;
+	color: var(--text-muted);
+	font-family: var(--font-monospace);
+	font-size: var(--code-size);
+	line-height: 1.45;
+}
+
+.cbf-editor-folded-preview code {
+	white-space: inherit;
+	font-family: inherit;
+	font-size: inherit;
+	color: inherit;
 }
 
 /* 代码块与标题栏无缝拼接 */
