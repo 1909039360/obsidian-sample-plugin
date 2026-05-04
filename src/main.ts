@@ -102,12 +102,18 @@ export default class MyPlugin extends Plugin {
 				const question = match[1].trim();
 				const contexts = this.selectionStore.getSelectedContexts();
 				
+				// 去除问题前后的 //
+				// match.index 是整个 //问题// 开始的位置
+				const lineWithoutSlashes = line.substring(0, match.index) + match[1];
+				editor.setLine(cursor.line, lineWithoutSlashes);
+				const newLineLength = lineWithoutSlashes.length;
+
 				// Move to next line and start writing
 				const enableThinking = this.settings.enableThinking;
 				if (enableThinking) {
-					editor.replaceRange("\n---\n\n> 思考过程...\n> ", { line: cursor.line, ch: line.length });
+					editor.replaceRange("\n---\n\n> 思考过程...\n> ", { line: cursor.line, ch: newLineLength });
 				} else {
-					editor.replaceRange("\n---\n\n", { line: cursor.line, ch: line.length });
+					editor.replaceRange("\n---\n\n", { line: cursor.line, ch: newLineLength });
 				}
 				
 				let currentLine = cursor.line + (enableThinking ? 4 : 3);
