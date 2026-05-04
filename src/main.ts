@@ -4,6 +4,7 @@ import {registerCodeBlockCollapser} from "./codeBlockCollapser";
 import {createEditorCodeBlockCollapserExtension} from "./editorCodeBlockCollapser";
 import {CodeBlockSelectionStore} from "./selectionStore";
 import {streamDashScope} from "./ai";
+import {AIPromptSuggest} from "./promptSuggest";
 
 // Remember to rename these classes and interfaces!
 
@@ -197,6 +198,9 @@ export default class MyPlugin extends Plugin {
 				return false;
 			}
 		});
+
+		// 注册 AI 提示词代码提示
+		this.registerEditorSuggest(new AIPromptSuggest(this.app));
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
