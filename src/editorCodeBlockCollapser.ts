@@ -1,6 +1,6 @@
 import { Extension, RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, DecorationSet, EditorView, WidgetType } from "@codemirror/view";
-import { editorInfoField, editorLivePreviewField } from "obsidian";
+import { editorInfoField, editorLivePreviewField, setIcon } from "obsidian";
 import { MyPluginSettings } from "./settings";
 import {
 	CodeBlockSelectionStore,
@@ -63,7 +63,7 @@ class FoldToggleWidget extends WidgetType {
 
 		const icon = document.createElement("span");
 		icon.className = "cbf-editor-toggle-icon";
-		icon.textContent = this.isBottom ? "▴" : "▾";
+		setIcon(icon, this.isBottom ? "chevron-up" : "chevron-down");
 		button.appendChild(icon);
 
 		button.addEventListener("mousedown", (event) => {
@@ -142,7 +142,7 @@ class FoldedCodeBlockWidget extends WidgetType {
 
 		const icon = document.createElement("span");
 		icon.className = "cbf-editor-toggle-icon";
-		icon.textContent = "▸";
+		setIcon(icon, "chevron-right");
 		button.appendChild(icon);
 
 		button.addEventListener("mousedown", (event) => {

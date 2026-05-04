@@ -1,4 +1,4 @@
-import { MarkdownPostProcessorContext, Plugin } from "obsidian";
+import { MarkdownPostProcessorContext, Plugin, setIcon } from "obsidian";
 import { MyPluginSettings } from "./settings";
 import {
 	CodeBlockSelectionStore,
@@ -96,7 +96,7 @@ export function registerCodeBlockCollapser(
 				// 应用默认折叠状态
 				const collapsed = getSettings().collapseByDefault;
 				wrapper.classList.toggle("cbf-collapsed", collapsed);
-				arrow.textContent = collapsed ? "▶" : "▼";
+				setIcon(arrow, collapsed ? "chevron-right" : "chevron-down");
 
 				// 将 pre 替换为 wrapper，并把 pre 移入 wrapper
 				pre.parentNode?.insertBefore(wrapper, pre);
@@ -127,7 +127,7 @@ export function registerCodeBlockCollapser(
 				// 点击切换
 				toggleBtn.addEventListener("click", () => {
 					const isCollapsed = wrapper.classList.toggle("cbf-collapsed");
-					arrow.textContent = isCollapsed ? "▶" : "▼";
+					setIcon(arrow, isCollapsed ? "chevron-right" : "chevron-down");
 				});
 			});
 		}
