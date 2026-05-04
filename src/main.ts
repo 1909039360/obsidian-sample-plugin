@@ -1,4 +1,5 @@
 import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
+import { StateEffect } from "@codemirror/state";
 import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
 import {registerCodeBlockCollapser} from "./codeBlockCollapser";
 import {createEditorCodeBlockCollapserExtension} from "./editorCodeBlockCollapser";
@@ -125,10 +126,10 @@ export default class MyPlugin extends Plugin {
 					if (view.editor) {
 						const cm = (view.editor as any).cm;
 						if (cm) {
-							// 派发一个必定执行的 Transaction 强制重新运行 update 循环并重建装饰器
-							// 哪怕没有任何真正的文字变更或选中项变更，也能触发
+							// 定义一个空副作用，强行让 CodeMirror 认为发生了一次 Transaction
+							const forceUpdate = StateEffect.define<null>();
 							cm.dispatch({
-								selection: { anchor: cm.state.selection.main.head }
+								effects: forceUpdate.of(null)
 							});
 						}
 					}
