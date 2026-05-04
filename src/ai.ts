@@ -34,7 +34,8 @@ export async function streamDashScope(
 				'Authorization': `Bearer ${apiKey}`
 			},
 			body: JSON.stringify({
-				model: 'deepseek-v4-pro', // 也许后期变成可配置的
+				// model: 'deepseek-v4-pro', // 也许后期变成可配置的
+				model: 'deepseek-v4-flash', 
 				messages: [
 					{ role: 'system', content: systemPrompt },
 					{ role: 'user', content: query }
