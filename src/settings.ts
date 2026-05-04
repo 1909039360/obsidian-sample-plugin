@@ -70,7 +70,7 @@ export class SampleSettingTab extends PluginSettingTab {
 					.setPlaceholder(DEFAULT_SETTINGS.aiBaseUrl)
 					.setValue(this.plugin.settings.aiBaseUrl)
 					.onChange(async (value) => {
-						this.plugin.settings.aiBaseUrl = value.trim() || DEFAULT_SETTINGS.aiBaseUrl;
+						this.plugin.settings.aiBaseUrl = value.trim();
 						await this.plugin.saveSettings();
 					});
 			});
@@ -82,7 +82,7 @@ export class SampleSettingTab extends PluginSettingTab {
 				.setPlaceholder(DEFAULT_SETTINGS.aiModel)
 				.setValue(this.plugin.settings.aiModel)
 				.onChange(async (value) => {
-					this.plugin.settings.aiModel = value.trim() || DEFAULT_SETTINGS.aiModel;
+					this.plugin.settings.aiModel = value.trim();
 					await this.plugin.saveSettings();
 				}));
 

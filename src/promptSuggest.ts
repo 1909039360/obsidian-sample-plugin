@@ -43,9 +43,10 @@ export class AIPromptSuggest extends EditorSuggest<string> {
 	getSuggestions(context: EditorSuggestContext): string[] {
 		const customPrompts = this.getSettings().customPrompts ?? [];
 		// 自定义提示词排在前面，再跟内置提示词（去重）
+		const customSet = new Set(customPrompts);
 		const allPrompts = [
 			...customPrompts,
-			...BUILTIN_PROMPTS.filter(p => !customPrompts.includes(p)),
+			...BUILTIN_PROMPTS.filter(p => !customSet.has(p)),
 		];
 
 		const query = context.query.toLowerCase();
