@@ -107,6 +107,38 @@ export default class MyPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'clear-selected-code-blocks',
+			name: 'Clear all selected code blocks',
+			hotkeys: [{ modifiers: ['Mod'], key: "'" }], // Ctrl + ' (Windows) / Cmd + ' (Mac)
+			callback: () => {
+				// 清空缓存
+				this.selectionStore.clear();
+
+				// 遍历所有打开的 Markdown 视图并强制重绘
+				this.app.workspace.getLeavesOfType('markdown').forEach((leaf) => {
+					const view = leaf.view as MarkdownView;
+					// 刷新阅读模式
+					if (view.previewMode) {
+						view.previewMode.rerender(true);
+					}
+					// 刷新编辑模式 (Live Preview)
+					if (view.editor) {
+						const cm = (view.editor as any).cm;
+						if (cm) {
+							// 派发一个必定执行的 Transaction 强制重新运行 update 循环并重建装饰器
+							// 哪怕没有任何真正的文字变更或选中项变更，也能触发
+							cm.dispatch({
+								selection: { anchor: cm.state.selection.main.head }
+							});
+						}
+					}
+				});
+
+				new Notice('✓ 已取消并清空所有选中的代码块！');
+			}
+		});
+
+		this.addCommand({
 			id: 'ai-completion',
 			name: 'AI Completion (DashScope)',
 			hotkeys: [{ modifiers: ['Mod'], key: 'Enter' }], // Mod = Ctrl (Win/Linux) 或者 Cmd (Mac)
@@ -163,7 +195,8 @@ export default class MyPlugin extends Plugin {
 								currentCh += chunk.length;
 							}
 							
-							// Scroll cursor into view (Optional)
+							// 将光标移动到最新位置，确保视图可以向下自动滚动
+							editor.setCursor({ line: currentLine, ch: currentCh });
 						},
 						onContent: (chunk) => {
 							if (!isAnswering && enableThinking) {
@@ -175,7 +208,7 @@ export default class MyPlugin extends Plugin {
 							}
 
 							editor.replaceRange(chunk, { line: currentLine, ch: currentCh });
-							
+
 							// Update cursor tracking
 							const lines = chunk.split("\n");
 							if (lines.length > 1) {
@@ -185,6 +218,9 @@ export default class MyPlugin extends Plugin {
 							} else {
 								currentCh += chunk.length;
 							}
+
+							// 将光标移动到最新位置，确保视图可以向下自动滚动
+							editor.setCursor({ line: currentLine, ch: currentCh });
 						},
 						onError: (error) => {
 							new Notice("AI Request Errored: " + error.message);
