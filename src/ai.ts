@@ -11,6 +11,7 @@ export async function streamDashScope(
 	query: string,
 	contexts: CodeBlockContext[],
 	apiKey: string,
+	enableThinking: boolean,
 	callbacks: AIStreamCallbacks
 ) {
 	if (!apiKey) {
@@ -40,7 +41,7 @@ export async function streamDashScope(
 					{ role: 'system', content: systemPrompt },
 					{ role: 'user', content: query }
 				],
-				enable_thinking: true,
+				enable_thinking: enableThinking,
 				stream: true
 			})
 		});

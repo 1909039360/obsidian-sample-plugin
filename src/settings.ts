@@ -5,12 +5,14 @@ export interface MyPluginSettings {
 	mySetting: string;
 	collapseByDefault: boolean;
 	dashScopeApiKey: string;
+	enableThinking: boolean;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
 	mySetting: 'default',
 	collapseByDefault: false,
-	dashScopeApiKey: ''
+	dashScopeApiKey: '',
+	enableThinking: false
 }
 
 export class SampleSettingTab extends PluginSettingTab {
@@ -44,6 +46,16 @@ export class SampleSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.dashScopeApiKey)
 				.onChange(async (value) => {
 					this.plugin.settings.dashScopeApiKey = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('启用思考模式 (Enable Thinking)')
+			.setDesc('开启后，大模型将展示思考过程（如 DeepSeek-R1 的思考链）。默认关闭。')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.enableThinking)
+				.onChange(async (value) => {
+					this.plugin.settings.enableThinking = value;
 					await this.plugin.saveSettings();
 				}));
 	}

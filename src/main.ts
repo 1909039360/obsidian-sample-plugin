@@ -90,18 +90,26 @@ export default class MyPlugin extends Plugin {
 				const contexts = this.selectionStore.getSelectedContexts();
 				
 				// Move to next line and start writing
-				editor.replaceRange("\n---\n\n> 思考过程...\n> ", { line: cursor.line, ch: line.length });
-				let currentLine = cursor.line + 4;
-				let currentCh = 2; // "> "
+				const enableThinking = this.settings.enableThinking;
+				if (enableThinking) {
+					editor.replaceRange("\n---\n\n> 思考过程...\n> ", { line: cursor.line, ch: line.length });
+				} else {
+					editor.replaceRange("\n---\n\n", { line: cursor.line, ch: line.length });
+				}
+				
+				let currentLine = cursor.line + (enableThinking ? 4 : 3);
+				let currentCh = enableThinking ? 2 : 0; // "> " or start of line
 
-				let isAnswering = false;
+				let isAnswering = !enableThinking;
 
 				await streamDashScope(
 					question, 
 					contexts,
 					this.settings.dashScopeApiKey,
+					enableThinking,
 					{
 						onReasoning: (chunk) => {
+							if (!enableThinking) return;
 							// For line breaks in reasoning block, we insert "> " to maintain quote format
 							const formattedChunk = chunk.replace(/\n/g, "\n> ");
 							editor.replaceRange(formattedChunk, { line: currentLine, ch: currentCh });
@@ -119,7 +127,7 @@ export default class MyPlugin extends Plugin {
 							// Scroll cursor into view (Optional)
 						},
 						onContent: (chunk) => {
-							if (!isAnswering) {
+							if (!isAnswering && enableThinking) {
 								isAnswering = true;
 								const endQuote = "\n\n---\n\n";
 								editor.replaceRange(endQuote, { line: currentLine, ch: currentCh });
