@@ -132,13 +132,13 @@ export default class MyPlugin extends Plugin {
 				// Move to next line and start writing
 				const enableThinking = this.settings.enableThinking;
 				if (enableThinking) {
-					editor.replaceRange("\n---\n\n> 思考过程...\n> ", { line: cursor.line, ch: newLineLength });
+					editor.replaceRange("\n---\n\n```python\n思考过程...\n", { line: cursor.line, ch: newLineLength });
 				} else {
 					editor.replaceRange("\n---\n\n", { line: cursor.line, ch: newLineLength });
 				}
 				
-				let currentLine = cursor.line + (enableThinking ? 4 : 3);
-				let currentCh = enableThinking ? 2 : 0; // "> " or start of line
+				let currentLine = cursor.line + (enableThinking ? 5 : 3);
+				let currentCh = 0; 
 
 				let isAnswering = !enableThinking;
 
@@ -150,18 +150,17 @@ export default class MyPlugin extends Plugin {
 					{
 						onReasoning: (chunk) => {
 							if (!enableThinking) return;
-							// For line breaks in reasoning block, we insert "> " to maintain quote format
-							const formattedChunk = chunk.replace(/\n/g, "\n> ");
-							editor.replaceRange(formattedChunk, { line: currentLine, ch: currentCh });
+							
+							editor.replaceRange(chunk, { line: currentLine, ch: currentCh });
 							
 							// Update cursor position tracking
-							const lines = formattedChunk.split("\n");
+							const lines = chunk.split("\n");
 							if (lines.length > 1) {
 								currentLine += lines.length - 1;
 								const lastLine = lines[lines.length - 1];
 								currentCh = lastLine ? lastLine.length : 0;
 							} else {
-								currentCh += formattedChunk.length;
+								currentCh += chunk.length;
 							}
 							
 							// Scroll cursor into view (Optional)
@@ -169,9 +168,9 @@ export default class MyPlugin extends Plugin {
 						onContent: (chunk) => {
 							if (!isAnswering && enableThinking) {
 								isAnswering = true;
-								const endQuote = "\n\n---\n\n";
+								const endQuote = "\n```\n\n---\n\n";
 								editor.replaceRange(endQuote, { line: currentLine, ch: currentCh });
-								currentLine += 4;
+								currentLine += 5;
 								currentCh = 0;
 							}
 
