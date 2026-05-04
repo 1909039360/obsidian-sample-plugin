@@ -204,6 +204,7 @@ If your plugin does not need CSS, delete this file.
 }
 
 .cbf-editor-folded {
+	display: block !important;
 	margin: 0.4em 0;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -246,7 +247,13 @@ If your plugin does not need CSS, delete this file.
 }
 
 .cbf-editor-folded-preview code {
-	white-space: inherit;
+	display: -webkit-box;
+	-webkit-line-clamp: 1;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: pre-wrap;
+	word-break: break-all;
 	font-family: inherit;
 	font-size: inherit;
 	color: inherit;

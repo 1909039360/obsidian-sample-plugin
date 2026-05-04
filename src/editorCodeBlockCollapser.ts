@@ -77,7 +77,6 @@ class FoldToggleWidget extends WidgetType {
 					to: this.block.endPos,
 				}),
 			});
-			view.focus();
 		});
 
 		container.appendChild(button);
@@ -85,7 +84,7 @@ class FoldToggleWidget extends WidgetType {
 	}
 
 	ignoreEvent(): boolean {
-		return false;
+		return true;
 	}
 }
 
@@ -155,7 +154,6 @@ class FoldedCodeBlockWidget extends WidgetType {
 					defaultState: false,
 				}),
 			});
-			view.focus();
 		});
 		actions.appendChild(button);
 
@@ -173,7 +171,7 @@ class FoldedCodeBlockWidget extends WidgetType {
 	}
 
 	ignoreEvent(): boolean {
-		return false;
+		return true;
 	}
 }
 
@@ -309,8 +307,6 @@ function createFoldDecoration(
 ): Decoration {
 	return Decoration.replace({
 		block: true,
-		inclusiveStart: true,
-		inclusiveEnd: false,
 		widget: new FoldedCodeBlockWidget(block, isSelected, selectionStore),
 	});
 }
@@ -359,8 +355,10 @@ function createFoldField(
 				const { from, to, defaultState } = effect.value;
 				let hasFold = false;
 
-				folds.between(from, to, () => {
-					hasFold = true;
+				folds.between(from, to, (fromPos, toPos) => {
+					if (fromPos === from && toPos === to) {
+						hasFold = true;
+					}
 				});
 
 				const shouldFold = defaultState !== undefined ? defaultState : !hasFold;
@@ -420,8 +418,10 @@ function buildToggleDecorations(
 
 	for (const block of findCodeBlockPositions(state)) {
 		let isFolded = false;
-		folds.between(block.startPos, block.endPos, () => {
-			isFolded = true;
+		folds.between(block.startPos, block.endPos, (fromPos, toPos) => {
+			if (fromPos === block.startPos && toPos === block.endPos) {
+				isFolded = true;
+			}
 		});
 
 		if (isFolded) {
