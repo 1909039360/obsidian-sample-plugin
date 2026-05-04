@@ -40,7 +40,7 @@ export class SampleSettingTab extends PluginSettingTab {
 			.setName('DashScope API Key')
 			.setDesc('阿里云百炼 (DashScope) API Key，用于 AI 问答')
 			.addText(text => text
-				.setPlaceholder('sk-1ed436ba5b3f4d0c9ab32af1ac4788bc')
+				.setPlaceholder('在此处粘贴 sk-*** 开头的 API Key')
 				.setValue(this.plugin.settings.dashScopeApiKey)
 				.onChange(async (value) => {
 					this.plugin.settings.dashScopeApiKey = value;
