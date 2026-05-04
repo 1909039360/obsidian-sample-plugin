@@ -83,6 +83,26 @@ export default class MyPlugin extends Plugin {
 				editor.replaceRange('////', cursor);
 				// Move cursor back by 2 characters to be exactly in the middle: //|//
 				editor.setCursor({ line: cursor.line, ch: cursor.ch + 2 });
+
+				// 通过底层 CodeMirror 模拟一次原生打字事件 (userEvent: "input.type") 
+				// 从而强行欺骗 Obsidian 的 EditorSuggest 事件监听器将其弹起。
+				setTimeout(() => {
+					const cm = (editor as any).cm;
+					if (cm) {
+						const pos = cm.state.selection.main.head;
+						cm.dispatch({
+							changes: { from: pos, insert: " " },
+							selection: { anchor: pos + 1, head: pos + 1 },
+							userEvent: "input.type"
+						});
+						// 紧接着发一个退格事件，将其恢复为最初的光标状态，并且激活弹出查询
+						cm.dispatch({
+							changes: { from: pos, to: pos + 1 },
+							selection: { anchor: pos, head: pos },
+							userEvent: "delete.backward"
+						});
+					}
+				}, 50);
 			}
 		});
 
