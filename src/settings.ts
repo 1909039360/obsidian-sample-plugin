@@ -9,6 +9,7 @@ export interface MyPluginSettings {
 	aiBaseUrl: string;
 	aiModel: string;
 	customPrompts: string[];
+	systemPromptTemplate: string;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -19,6 +20,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	aiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
 	aiModel: 'deepseek-v4-flash',
 	customPrompts: [],
+	systemPromptTemplate: "你是一个强大的 AI 助手。\n\n{{CONTEXT}}\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)",
 }
 
 export class SampleSettingTab extends PluginSettingTab {
@@ -96,10 +98,26 @@ export class SampleSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// ── 自定义提示词 ─────────────────────────────────────────────
-		new Setting(containerEl).setName('自定义提示词').setHeading();
+		// ── 自定义提示词 ────────────────────────────────────────────────
+		new Setting(containerEl).setName('自定义提示词 (Prompts)').setHeading();
+
+		new Setting(containerEl)
+			.setName('系统提示词 (System Prompt)')
+			.setDesc('AI 会话中使用的系统级指令，使用 {{CONTEXT}} 占位符作为下方代码段或所选文本注入的位置。')
+			.addTextArea(text => {
+				text.inputEl.addClass('cbf-prompts-textarea');
+				text.inputEl.rows = 8;
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.systemPromptTemplate)
+					.setValue(this.plugin.settings.systemPromptTemplate)
+					.onChange(async (value) => {
+						this.plugin.settings.systemPromptTemplate = value.trim();
+						await this.plugin.saveSettings();
+					});
+			});
+
 		containerEl.createEl('p', {
-			text: '在此处添加常用的自定义提示词，它们将出现在 //// 快捷输入的建议列表顶部。每行一条。',
+			text: '在此处添加常用的用户级自定义命令提示词，它们将出现在 //// 快捷输入的建议列表顶部。每行一条。',
 			cls: 'setting-item-description',
 		});
 

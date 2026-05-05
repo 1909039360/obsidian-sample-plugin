@@ -283,7 +283,8 @@ export default class MyPlugin extends Plugin {
 						}
 					},
 					this.settings.aiBaseUrl,
-					this.settings.aiModel
+					this.settings.aiModel,
+					this.settings.systemPromptTemplate
 				);
 			}
 		});

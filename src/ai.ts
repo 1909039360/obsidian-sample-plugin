@@ -14,7 +14,8 @@ export async function streamDashScope(
 	enableThinking: boolean,
 	callbacks: AIStreamCallbacks,
 	baseUrl?: string,
-	model?: string
+	model?: string,
+	systemPromptTemplate?: string
 ) {
 	if (!apiKey) {
 		callbacks.onError(new Error("API Key 尚未配置，请在设置中配置。"));
@@ -25,13 +26,24 @@ export async function streamDashScope(
 	const resolvedModel = model?.trim() || 'deepseek-v4-flash';
 
 	try {
-		let systemPrompt = "你是一个强大的 AI 助手。";
+		let contextStr = "";
 		if (contexts.length > 0) {
-			systemPrompt += "\n\n以下是用户选中的代码段：\n" + contexts.map((ctx, index) => {
-				return `[代码段 ${index + 1}]\n文件: ${ctx.sourcePath}\n语言: ${ctx.language}\n\`\`\`${ctx.language}\n${ctx.content}\n\`\`\``;
+			contextStr = "以下是用户选中的上下文内容：\n" + contexts.map((ctx, index) => {
+				return `[片段 ${index + 1}]\n文件: ${ctx.sourcePath}\n语言: ${ctx.language}\n\`\`\`${ctx.language}\n${ctx.content}\n\`\`\``;
 			}).join("\n\n");
 		}
-		systemPrompt += "\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)\n";
+
+		let systemPrompt = systemPromptTemplate || "你是一个强大的 AI 助手。\n\n{{CONTEXT}}\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)";
+		
+		if (contextStr) {
+			if (systemPrompt.includes("{{CONTEXT}}")) {
+				systemPrompt = systemPrompt.replace("{{CONTEXT}}", contextStr);
+			} else {
+				systemPrompt += "\n\n" + contextStr;
+			}
+		} else {
+			systemPrompt = systemPrompt.replace("{{CONTEXT}}", "");
+		}
 
 		const response = await window.fetch(resolvedBaseUrl, {
 			method: 'POST',
