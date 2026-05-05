@@ -60,6 +60,15 @@ export function createCodeBlockContext(
 export class CodeBlockSelectionStore {
 	private readonly selectedBlocks = new Map<string, CodeBlockContext>();
 	private listeners: Array<() => void> = [];
+	private historyBlocks: CodeBlockContext[] = [];
+
+	private addToHistory(context: CodeBlockContext) {
+		this.historyBlocks = this.historyBlocks.filter(c => c.id !== context.id);
+		this.historyBlocks.unshift(context);
+		if (this.historyBlocks.length > 5) {
+			this.historyBlocks.pop();
+		}
+	}
 
 	subscribe(listener: () => void): () => void {
 		this.listeners.push(listener);
@@ -74,18 +83,22 @@ export class CodeBlockSelectionStore {
 
 	toggle(context: CodeBlockContext): boolean {
 		if (this.selectedBlocks.has(context.id)) {
+			this.addToHistory(this.selectedBlocks.get(context.id)!);
 			this.selectedBlocks.delete(context.id);
 			this.notify();
 			return false;
 		}
 
+		this.historyBlocks = this.historyBlocks.filter(c => c.id !== context.id);
 		this.selectedBlocks.set(context.id, context);
 		this.notify();
 		return true;
 	}
 
 	remove(blockId: string) {
-		if (this.selectedBlocks.has(blockId)) {
+		const context = this.selectedBlocks.get(blockId);
+		if (context) {
+			this.addToHistory(context);
 			this.selectedBlocks.delete(blockId);
 			this.notify();
 		}
@@ -101,7 +114,14 @@ export class CodeBlockSelectionStore {
 		);
 	}
 
+	getHistory(): CodeBlockContext[] {
+		return this.historyBlocks;
+	}
+
 	clear(): void {
+		for (const context of this.selectedBlocks.values()) {
+			this.addToHistory(context);
+		}
 		this.selectedBlocks.clear();
 		this.notify();
 	}

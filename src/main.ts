@@ -27,6 +27,7 @@ export default class MyPlugin extends Plugin {
 		this.addCommand({
 			id: 'open-ai-task-view',
 			name: 'Open AI Task View',
+			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'L' }],
 			callback: () => {
 				this.activateView();
 			}

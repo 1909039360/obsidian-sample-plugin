@@ -1,6 +1,5 @@
-import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
-import { CodeBlockSelectionStore } from "./selectionStore";
-import { streamDashScope } from "./ai";
+import { ItemView, WorkspaceLeaf, setIcon, Notice } from "obsidian";
+import { CodeBlockSelectionStore, createCodeBlockContext } from "./selectionStore";
 import { MyPluginSettings } from "./settings";
 
 export const AI_TASK_VIEW_TYPE = "ai-task-view";
@@ -11,8 +10,6 @@ export class AITaskView extends ItemView {
 	unsubscribeStore: () => void;
 
 	contextContainer: HTMLElement;
-	chatContainer: HTMLElement;
-	inputEl: HTMLTextAreaElement;
 
 	constructor(leaf: WorkspaceLeaf, store: CodeBlockSelectionStore, settings: () => MyPluginSettings) {
 		super(leaf);
@@ -38,42 +35,46 @@ export class AITaskView extends ItemView {
 		container.empty();
 		container.addClass("ai-task-view");
 
-		const header = container.createEl("h3", { text: "AI Context & Chat" });
+		const header = container.createEl("h3", { text: "AI Context Manager" });
 
-		// Context items list
-		this.contextContainer = container.createEl("div", { cls: "ai-context-container" });
-		
+		const toolbar = container.createEl("div", { cls: "ai-task-toolbar" });
+		toolbar.style.display = "flex";
+		toolbar.style.gap = "8px";
+		toolbar.style.marginBottom = "10px";
+
 		// Clear all button
-		const clearBtn = container.createEl("button", { text: "Clear All Contexts", cls: "ai-clear-btn" });
-		clearBtn.style.marginBottom = "10px";
+		const clearBtn = toolbar.createEl("button", { text: "Clear All Contexts", cls: "ai-clear-btn" });
 		clearBtn.onclick = () => {
 			this.store.clear();
 		};
 
-		// Chat display area
-		this.chatContainer = container.createEl("div", { cls: "ai-chat-container" });
-		this.chatContainer.style.flexGrow = "1";
-		this.chatContainer.style.overflowY = "auto";
-		this.chatContainer.style.border = "1px solid var(--background-modifier-border)";
-		this.chatContainer.style.borderRadius = "4px";
-		this.chatContainer.style.padding = "8px";
-		this.chatContainer.style.marginTop = "10px";
-		this.chatContainer.style.marginBottom = "10px";
-		this.chatContainer.style.minHeight = "200px";
+		// Clipboard paste button
+		const clipboardBtn = toolbar.createEl("button", { text: "Paste Clipboard", cls: "ai-clipboard-btn" });
+		clipboardBtn.onclick = async () => {
+			try {
+				const text = await navigator.clipboard.readText();
+				if (!text) {
+					new Notice("剪切板为空");
+					return;
+				}
+				const timestamp = Date.now();
+				const context = createCodeBlockContext({
+					sourcePath: 'Clipboard',
+					startLine: timestamp,
+					endLine: timestamp,
+					language: 'text',
+					content: text,
+					mode: 'live-preview'
+				});
+				this.store.toggle(context);
+				new Notice("已从剪切板导入内容");
+			} catch(e) {
+				new Notice("无法读取剪切板");
+			}
+		};
 
-		// Input area
-		this.inputEl = container.createEl("textarea", {
-			attr: { placeholder: "Ask a question based on contexts..." }
-		});
-		this.inputEl.style.width = "100%";
-		this.inputEl.style.minHeight = "60px";
-		this.inputEl.style.resize = "vertical";
-
-		// Submit button
-		const submitBtn = container.createEl("button", { text: "Send", cls: "mod-cta" });
-		submitBtn.style.width = "100%";
-		submitBtn.style.marginTop = "10px";
-		submitBtn.onclick = () => this.submitQuestion();
+		// Context items list
+		this.contextContainer = container.createEl("div", { cls: "ai-context-container" });
 
 		// Subscribe to store changes to re-render context list
 		this.unsubscribeStore = this.store.subscribe(() => {
@@ -93,108 +94,70 @@ export class AITaskView extends ItemView {
 		this.contextContainer.empty();
 		const contexts = this.store.getSelectedContexts();
 
+		this.contextContainer.createEl("h4", { text: "Active Contexts" });
+
 		if (contexts.length === 0) {
 			this.contextContainer.createEl("p", { text: "No contexts selected.", cls: "text-muted" });
-			return;
+		} else {
+			contexts.forEach((ctx, idx) => {
+				const itemDiv = this.contextContainer.createEl("div", { cls: "ai-context-item" });
+				itemDiv.style.display = "flex";
+				itemDiv.style.justifyContent = "space-between";
+				itemDiv.style.alignItems = "center";
+				itemDiv.style.border = "1px solid var(--background-modifier-border)";
+				itemDiv.style.borderRadius = "4px";
+				itemDiv.style.padding = "4px 8px";
+				itemDiv.style.marginBottom = "4px";
+
+				const info = itemDiv.createEl("div");
+				info.createEl("strong", { text: `[${idx+1}] ${ctx.language}` });
+				info.createEl("br");
+
+				const fileInfo = ctx.sourcePath;
+				const linesInfo = ctx.endLine > ctx.startLine ? `L${ctx.startLine + 1}-L${ctx.endLine + 1}` : `L${ctx.startLine + 1}`;
+				const previewText = ctx.content.length > 30 ? ctx.content.replace(/\s+/g, ' ').substring(0, 30) + "..." : ctx.content;
+
+				info.createEl("small", { text: fileInfo !== 'Clipboard' ? `${fileInfo} (${linesInfo})` : fileInfo, cls: "text-muted" });
+				info.createEl("br");
+				info.createEl("span", { text: previewText, cls: "text-muted" }).style.fontSize = "0.8em";
+
+				const removeBtn = itemDiv.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "Remove" } });
+				setIcon(removeBtn, "trash");
+				removeBtn.onclick = () => {
+					this.store.remove(ctx.id);
+				};
+			});
 		}
 
-		contexts.forEach((ctx, idx) => {
-			const itemDiv = this.contextContainer.createEl("div", { cls: "ai-context-item" });
-			itemDiv.style.display = "flex";
-			itemDiv.style.justifyContent = "space-between";
-			itemDiv.style.alignItems = "center";
-			itemDiv.style.border = "1px solid var(--background-modifier-border)";
-			itemDiv.style.borderRadius = "4px";
-			itemDiv.style.padding = "4px 8px";
-			itemDiv.style.marginBottom = "4px";
-
-			const info = itemDiv.createEl("div");
-			info.createEl("strong", { text: `[${idx+1}] ${ctx.language}` });
-			info.createEl("br");
+		// Render History
+		const history = this.store.getHistory();
+		if (history.length > 0) {
+			this.contextContainer.createEl("hr").style.margin = "16px 0";
+			this.contextContainer.createEl("h4", { text: "History (Last 5)" });
 			
-			const fileInfo = ctx.sourcePath;
-			const linesInfo = ctx.endLine > ctx.startLine ? `L${ctx.startLine + 1}-L${ctx.endLine + 1}` : `L${ctx.startLine + 1}`;
-			const previewText = ctx.content.length > 30 ? ctx.content.substring(0, 30) + "..." : ctx.content;
+			history.forEach((ctx, idx) => {
+				const itemDiv = this.contextContainer.createEl("div", { cls: "ai-context-history-item" });
+				itemDiv.style.display = "flex";
+				itemDiv.style.justifyContent = "space-between";
+				itemDiv.style.alignItems = "center";
+				itemDiv.style.border = "1px dashed var(--background-modifier-border)";
+				itemDiv.style.borderRadius = "4px";
+				itemDiv.style.padding = "4px 8px";
+				itemDiv.style.marginBottom = "4px";
+				itemDiv.style.opacity = "0.7";
 
-			info.createEl("small", { text: `${fileInfo} (${linesInfo})`, cls: "text-muted" });
-			info.createEl("br");
-			info.createEl("span", { text: previewText, cls: "text-muted" }).style.fontSize = "0.8em";
+				const info = itemDiv.createEl("div");
+				const previewText = ctx.content.length > 30 ? ctx.content.replace(/\s+/g, ' ').substring(0, 30) + "..." : ctx.content;
+				info.createEl("small", { text: ctx.sourcePath !== 'Clipboard' ? `${ctx.sourcePath} (${ctx.language})` : 'Clipboard' });
+				info.createEl("br");
+				info.createEl("span", { text: previewText }).style.fontSize = "0.8em";
 
-			const removeBtn = itemDiv.createEl("button", { cls: "clickable-icon" });
-			setIcon(removeBtn, "trash");
-			removeBtn.onclick = () => {
-				this.store.remove(ctx.id);
-			};
-		});
-	}
-
-	async submitQuestion() {
-		const question = this.inputEl.value.trim();
-		if (!question) return;
-
-		const contexts = this.store.getSelectedContexts();
-		const settings = this.settings();
-
-		// Create a new message block in chat container
-		const userMsg = this.chatContainer.createEl("div");
-		userMsg.createEl("strong", { text: "You:" });
-		userMsg.createEl("p", { text: question });
-		userMsg.style.borderBottom = "1px solid var(--background-modifier-border)";
-		userMsg.style.paddingBottom = "8px";
-		userMsg.style.marginBottom = "8px";
-
-		const aiMsg = this.chatContainer.createEl("div");
-		aiMsg.createEl("strong", { text: "AI:" });
-		const aiContent = aiMsg.createEl("div");
-		
-		const reasoningContent = aiMsg.createEl("div");
-		reasoningContent.style.color = "var(--text-muted)";
-		reasoningContent.style.fontSize = "0.9em";
-		reasoningContent.style.borderLeft = "2px solid var(--text-muted)";
-		reasoningContent.style.paddingLeft = "8px";
-		reasoningContent.style.marginBottom = "8px";
-		reasoningContent.style.display = "none";
-
-		// Clear input
-		this.inputEl.value = "";
-
-		const enableThinking = settings.enableThinking;
-		if (enableThinking) {
-			reasoningContent.style.display = "block";
-			reasoningContent.innerText = "Thinking...\n";
+				const restoreBtn = itemDiv.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "Restore" } });
+				setIcon(restoreBtn, "plus-with-circle");
+				restoreBtn.onclick = () => {
+					this.store.toggle(ctx); // Adds it back and removes from history
+				};
+			});
 		}
-
-		let isFirstContent = true;
-
-		await streamDashScope(
-			question,
-			contexts,
-			settings.dashScopeApiKey,
-			enableThinking,
-			{
-				onReasoning: (chunk) => {
-					if (!enableThinking) return;
-					if (reasoningContent.innerText === "Thinking...\n") reasoningContent.innerText = "";
-					reasoningContent.innerText += chunk;
-					this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
-				},
-				onContent: (chunk) => {
-					if (isFirstContent && enableThinking) {
-						isFirstContent = false;
-					}
-					aiContent.innerText += chunk;
-					this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
-				},
-				onError: (error) => {
-					const errEl = aiMsg.createEl("p", { text: `Error: ${error.message}` });
-					errEl.style.color = "var(--text-error)";
-				},
-				onComplete: () => {
-					// Done
-				}
-			},
-			settings.aiBaseUrl,
-			settings.aiModel
-		);
 	}
 }
