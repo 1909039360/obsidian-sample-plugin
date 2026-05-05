@@ -59,15 +59,36 @@ export function createCodeBlockContext(
 
 export class CodeBlockSelectionStore {
 	private readonly selectedBlocks = new Map<string, CodeBlockContext>();
+	private listeners: Array<() => void> = [];
+
+	subscribe(listener: () => void): () => void {
+		this.listeners.push(listener);
+		return () => {
+			this.listeners = this.listeners.filter(l => l !== listener);
+		};
+	}
+
+	private notify() {
+		this.listeners.forEach(l => l());
+	}
 
 	toggle(context: CodeBlockContext): boolean {
 		if (this.selectedBlocks.has(context.id)) {
 			this.selectedBlocks.delete(context.id);
+			this.notify();
 			return false;
 		}
 
 		this.selectedBlocks.set(context.id, context);
+		this.notify();
 		return true;
+	}
+
+	remove(blockId: string) {
+		if (this.selectedBlocks.has(blockId)) {
+			this.selectedBlocks.delete(blockId);
+			this.notify();
+		}
 	}
 
 	isSelected(blockId: string): boolean {
@@ -82,5 +103,6 @@ export class CodeBlockSelectionStore {
 
 	clear(): void {
 		this.selectedBlocks.clear();
+		this.notify();
 	}
 }

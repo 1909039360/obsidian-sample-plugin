@@ -1,4 +1,4 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
+import {App, Editor, MarkdownView, Modal, Notice, Plugin, WorkspaceLeaf} from 'obsidian';
 import { StateEffect } from "@codemirror/state";
 import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
 import {registerCodeBlockCollapser} from "./codeBlockCollapser";
@@ -6,6 +6,7 @@ import {createEditorCodeBlockCollapserExtension} from "./editorCodeBlockCollapse
 import {CodeBlockSelectionStore, createCodeBlockContext} from "./selectionStore";
 import {streamDashScope} from "./ai";
 import {AIPromptSuggest} from "./promptSuggest";
+import {AITaskView, AI_TASK_VIEW_TYPE} from "./aiTaskView";
 
 // Remember to rename these classes and interfaces!
 
@@ -15,6 +16,21 @@ export default class MyPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// Register View
+		this.registerView(
+			AI_TASK_VIEW_TYPE,
+			(leaf) => new AITaskView(leaf, this.selectionStore, () => this.settings)
+		);
+
+		// Add command to open the view
+		this.addCommand({
+			id: 'open-ai-task-view',
+			name: 'Open AI Task View',
+			callback: () => {
+				this.activateView();
+			}
+		});
 
 		// This creates an icon in the left ribbon.
 		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
@@ -334,6 +350,31 @@ export default class MyPlugin extends Plugin {
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 
+	}
+
+	async activateView() {
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(AI_TASK_VIEW_TYPE);
+
+		if (leaves.length > 0) {
+			// A leaf with our view already exists, use that
+			leaf = leaves[0] as WorkspaceLeaf;
+		} else {
+			// Our view could not be found in the workspace, create a new leaf
+			// in the right sidebar for it
+			const rleaf = workspace.getRightLeaf(false);
+			if (rleaf) {
+				await rleaf.setViewState({ type: AI_TASK_VIEW_TYPE, active: true });
+				leaf = rleaf;
+			}
+		}
+
+		// "Reveal" the leaf in case it is in a collapsed sidebar
+		if (leaf) {
+			workspace.revealLeaf(leaf);
+		}
 	}
 
 	onunload() {
