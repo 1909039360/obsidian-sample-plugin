@@ -63,11 +63,34 @@ export default class MyPlugin extends Plugin {
 		this.addCommand({
 			id: 'add-selected-text-to-context',
 			name: 'Add selected text to AI context',
-			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'A' }], // Ctrl+Shift+A
-			editorCallback: (editor: Editor, view: MarkdownView) => {
+			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'c' }], // Ctrl+Shift+C
+			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				const selection = editor.getSelection();
+				
 				if (!selection) {
-					new Notice('请先选中一段文本');
+					try {
+						const clipboardText = await navigator.clipboard.readText();
+						if (!clipboardText) {
+							new Notice('当前没有选中内容，且剪切板为空');
+							return;
+						}
+						const context = createCodeBlockContext({
+							sourcePath: 'Clipboard',
+							startLine: 0,
+							endLine: clipboardText.split('\n').length - 1,
+							language: 'text',
+							content: clipboardText,
+							mode: 'live-preview'
+						});
+						const isAdded = this.selectionStore.toggle(context);
+						if (isAdded) {
+							new Notice(`剪切板内容已加入 AI 上下文（当前共 ${this.selectionStore.getSelectedContexts().length} 项）`);
+						} else {
+							new Notice("已从上下文中移除。");
+						}
+					} catch (e) {
+						new Notice("读取剪切板失败：" + e);
+					}
 					return;
 				}
 
