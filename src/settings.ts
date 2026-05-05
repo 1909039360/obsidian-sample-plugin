@@ -38,8 +38,14 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	
 	systemPromptTemplate: "你是一个强大的 AI 助手。\n\n{{CONTEXT}}\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)",
 	
-	savedSystemPrompts: [],
-	activeSystemPromptId: '',
+	savedSystemPrompts: [
+		{
+			id: 'default-system-prompt',
+			name: '默认系统提示词',
+			content: "你是一个强大的 AI 助手。\n\n{{CONTEXT}}\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)"
+		}
+	],
+	activeSystemPromptId: 'default-system-prompt',
 	
 	savedSoulPrompts: [],
 	activeSoulPromptId: '',

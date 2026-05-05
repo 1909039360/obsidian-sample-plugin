@@ -15,7 +15,8 @@ export async function streamDashScope(
 	callbacks: AIStreamCallbacks,
 	baseUrl?: string,
 	model?: string,
-	systemPromptTemplate?: string
+	systemPromptTemplate?: string,
+	soulPrompt?: string
 ) {
 	if (!apiKey) {
 		callbacks.onError(new Error("API Key 尚未配置，请在设置中配置。"));
@@ -34,6 +35,10 @@ export async function streamDashScope(
 		}
 
 		let systemPrompt = systemPromptTemplate || "你是一个强大的 AI 助手。\n\n{{CONTEXT}}\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)";
+		
+		if (soulPrompt) {
+			systemPrompt += "\n\n" + soulPrompt;
+		}
 		
 		if (contextStr) {
 			if (systemPrompt.includes("{{CONTEXT}}")) {

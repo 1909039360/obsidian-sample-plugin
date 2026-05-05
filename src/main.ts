@@ -284,7 +284,8 @@ export default class MyPlugin extends Plugin {
 					},
 					this.settings.aiBaseUrl,
 					this.settings.aiModel,
-					this.settings.systemPromptTemplate
+					this.settings.savedSystemPrompts?.find(p => p.id === this.settings.activeSystemPromptId)?.content || this.settings.systemPromptTemplate,
+					this.settings.savedSoulPrompts?.find(p => p.id === this.settings.activeSoulPromptId)?.content || ""
 				);
 			}
 		});
@@ -384,6 +385,15 @@ export default class MyPlugin extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		
+		// Ensure default system prompt is added if empty
+		if (!this.settings.savedSystemPrompts || this.settings.savedSystemPrompts.length === 0) {
+			this.settings.savedSystemPrompts = DEFAULT_SETTINGS.savedSystemPrompts;
+			// If we default the list, let's also select it if nothing is active
+			if (!this.settings.activeSystemPromptId) {
+				this.settings.activeSystemPromptId = DEFAULT_SETTINGS.activeSystemPromptId;
+			}
+		}
 	}
 
 	async saveSettings() {
