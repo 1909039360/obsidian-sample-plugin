@@ -1,6 +1,12 @@
 import {App, PluginSettingTab, Setting} from "obsidian";
 import MyPlugin from "./main";
 
+export interface NamedPrompt {
+	id: string;
+	name: string;
+	content: string;
+}
+
 export interface MyPluginSettings {
 	mySetting: string;
 	collapseByDefault: boolean;
@@ -9,7 +15,16 @@ export interface MyPluginSettings {
 	aiBaseUrl: string;
 	aiModel: string;
 	customPrompts: string[];
+	
+	// Legacy
 	systemPromptTemplate: string;
+	
+	// New named prompts
+	savedSystemPrompts: NamedPrompt[];
+	activeSystemPromptId: string;
+	
+	savedSoulPrompts: NamedPrompt[];
+	activeSoulPromptId: string;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -20,7 +35,14 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	aiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
 	aiModel: 'deepseek-v4-flash',
 	customPrompts: [],
+	
 	systemPromptTemplate: "你是一个强大的 AI 助手。\n\n{{CONTEXT}}\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)",
+	
+	savedSystemPrompts: [],
+	activeSystemPromptId: '',
+	
+	savedSoulPrompts: [],
+	activeSoulPromptId: '',
 }
 
 export class SampleSettingTab extends PluginSettingTab {

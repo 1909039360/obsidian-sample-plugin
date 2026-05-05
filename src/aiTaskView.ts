@@ -1,20 +1,24 @@
-import { ItemView, WorkspaceLeaf, setIcon, Notice } from "obsidian";
+import { ItemView, WorkspaceLeaf, setIcon, Notice, Setting } from "obsidian";
 import { CodeBlockSelectionStore, createCodeBlockContext } from "./selectionStore";
 import { MyPluginSettings } from "./settings";
+
+import MyPlugin from "./main";
 
 export const AI_TASK_VIEW_TYPE = "ai-task-view";
 
 export class AITaskView extends ItemView {
 	store: CodeBlockSelectionStore;
 	settings: () => MyPluginSettings;
+	plugin: MyPlugin;
 	unsubscribeStore: () => void;
 
 	contextContainer: HTMLElement;
 
-	constructor(leaf: WorkspaceLeaf, store: CodeBlockSelectionStore, settings: () => MyPluginSettings) {
+	constructor(leaf: WorkspaceLeaf, store: CodeBlockSelectionStore, settings: () => MyPluginSettings, plugin: MyPlugin) {
 		super(leaf);
 		this.store = store;
 		this.settings = settings;
+		this.plugin = plugin;
 	}
 
 	getViewType() {
@@ -158,6 +162,101 @@ export class AITaskView extends ItemView {
 					this.store.toggle(ctx); // Adds it back and removes from history
 				};
 			});
+		}
+
+		// Prompts config container
+		this.contextContainer.createEl("hr").style.margin = "20px 0";
+		this.renderPromptConfig("System Prompt", "savedSystemPrompts", "activeSystemPromptId");
+		this.contextContainer.createEl("hr").style.margin = "20px 0";
+		this.renderPromptConfig("Soul Prompt (回答个性)", "savedSoulPrompts", "activeSoulPromptId");
+	}
+
+	private renderPromptConfig(
+		title: string, 
+		listKey: "savedSystemPrompts" | "savedSoulPrompts", 
+		activeKey: "activeSystemPromptId" | "activeSoulPromptId"
+	) {
+		const settings = this.settings();
+		const list = settings[listKey];
+		
+		const headerDiv = this.contextContainer.createEl("div", { cls: "ai-prompt-header" });
+		headerDiv.style.display = "flex";
+		headerDiv.style.justifyContent = "space-between";
+		headerDiv.style.alignItems = "center";
+		headerDiv.createEl("h4", { text: title, cls: "ai-prompt-title" });
+
+		const newBtn = headerDiv.createEl("button", { text: "+ New", cls: "ai-prompt-new-btn" });
+		newBtn.onclick = async () => {
+			const id = Date.now().toString();
+			list.push({ id, name: "New Prompt", content: "" });
+			settings[activeKey] = id;
+			await this.plugin.saveSettings();
+			this.renderContexts();
+		};
+
+		if (list.length === 0) {
+			this.contextContainer.createEl("p", { text: "未配置任何提示词。", cls: "text-muted" });
+			return;
+		}
+
+		const selectDiv = this.contextContainer.createEl("div");
+		selectDiv.style.marginBottom = "8px";
+		
+		const select = selectDiv.createEl("select", { cls: "dropdown" });
+		select.style.width = "70%";
+		
+		// Add an empty option for Soul Prompts if none active
+		if (activeKey === "activeSoulPromptId") {
+			select.createEl("option", { text: "None / Default", value: "" });
+		}
+
+		list.forEach(p => {
+			const opt = select.createEl("option", { text: p.name, value: p.id });
+			if (settings[activeKey] === p.id) {
+				opt.selected = true;
+			}
+		});
+
+		select.onchange = async () => {
+			settings[activeKey] = select.value;
+			await this.plugin.saveSettings();
+			this.renderContexts();
+		};
+
+		const activePrompt = list.find(p => p.id === settings[activeKey]);
+		
+		if (activePrompt) {
+			const deleteBtn = selectDiv.createEl("button", { cls: "clickable-icon" });
+			deleteBtn.style.marginLeft = "8px";
+			setIcon(deleteBtn, "trash");
+			deleteBtn.onclick = async () => {
+				settings[listKey] = list.filter((p: any) => p.id !== activePrompt.id) as any;
+				settings[activeKey] = "";
+				await this.plugin.saveSettings();
+				this.renderContexts();
+			};
+
+			const nameInput = this.contextContainer.createEl("input", { type: "text" });
+			nameInput.style.width = "100%";
+			nameInput.style.marginBottom = "4px";
+			nameInput.value = activePrompt.name;
+			nameInput.placeholder = "Prompt Name";
+			nameInput.onchange = async () => {
+				activePrompt.name = nameInput.value;
+				await this.plugin.saveSettings();
+				this.renderContexts();
+			};
+
+			const textInput = this.contextContainer.createEl("textarea");
+			textInput.style.width = "100%";
+			textInput.style.minHeight = "80px";
+			textInput.style.resize = "vertical";
+			textInput.value = activePrompt.content;
+			textInput.placeholder = title === "System Prompt" ? "你是一个... {{CONTEXT}}" : "用鲁迅的语气回答...";
+			textInput.onchange = async () => {
+				activePrompt.content = textInput.value;
+				await this.plugin.saveSettings();
+			};
 		}
 	}
 }

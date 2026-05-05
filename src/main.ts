@@ -20,7 +20,7 @@ export default class MyPlugin extends Plugin {
 		// Register View
 		this.registerView(
 			AI_TASK_VIEW_TYPE,
-			(leaf) => new AITaskView(leaf, this.selectionStore, () => this.settings)
+			(leaf) => new AITaskView(leaf, this.selectionStore, () => this.settings, this)
 		);
 
 		// Add command to open the view
