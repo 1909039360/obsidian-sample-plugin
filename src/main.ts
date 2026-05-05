@@ -303,6 +303,34 @@ export default class MyPlugin extends Plugin {
 			createEditorCodeBlockCollapserExtension(this.settings, this.selectionStore)
 		);
 
+		// 注册右键菜单
+		this.registerEvent(
+			this.app.workspace.on('editor-menu', (menu, editor, view) => {
+				const selection = editor.getSelection();
+				if (selection) {
+					menu.addItem((item) => {
+						item
+							.setTitle('Add selected text to AI context')
+							.setIcon('plus-circle')
+							.onClick(() => {
+								// @ts-ignore
+								this.app.commands.executeCommandById(this.manifest.id + ':add-selected-text-to-context');
+							});
+					});
+				}
+
+				menu.addItem((item) => {
+					item
+						.setTitle('Clear all selected contexts')
+						.setIcon('x-circle')
+						.onClick(() => {
+							// @ts-ignore
+							this.app.commands.executeCommandById(this.manifest.id + ':clear-selected-code-blocks');
+						});
+				});
+			})
+		);
+
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 
