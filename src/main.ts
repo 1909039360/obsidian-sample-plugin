@@ -3,7 +3,7 @@ import { StateEffect } from "@codemirror/state";
 import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
 import {registerCodeBlockCollapser} from "./codeBlockCollapser";
 import {createEditorCodeBlockCollapserExtension} from "./editorCodeBlockCollapser";
-import {CodeBlockSelectionStore} from "./selectionStore";
+import {CodeBlockSelectionStore, createCodeBlockContext} from "./selectionStore";
 import {streamDashScope} from "./ai";
 import {AIPromptSuggest} from "./promptSuggest";
 
@@ -40,6 +40,40 @@ export default class MyPlugin extends Plugin {
 			name: 'Replace selected content',
 			editorCallback: (editor: Editor) => {
 				editor.replaceSelection('Sample editor command');
+			}
+		});
+
+		this.addCommand({
+			id: 'add-selected-text-to-context',
+			name: 'Add selected text to AI context',
+			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'A' }], // Ctrl+Shift+A
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				const selection = editor.getSelection();
+				if (!selection) {
+					new Notice('请先选中一段文本');
+					return;
+				}
+
+				const from = editor.getCursor("from");
+				const to = editor.getCursor("to");
+				
+				const context = createCodeBlockContext({
+					sourcePath: view.file?.path || 'unknown',
+					startLine: from.line,
+					endLine: to.line,
+					language: 'text', // 将普通文本标记为 text
+					content: selection,
+					mode: 'live-preview'
+				});
+				
+				// 因为可能是多次添加不同文本，我们这里如果已存在就忽略，或者用 toggle。
+				// toggle 的话再划一次同样的会取消。这很好。
+				const isAdded = this.selectionStore.toggle(context);
+				if (isAdded) {
+					new Notice(`已加入 AI 上下文队列（当前共 ${this.selectionStore.getSelectedContexts().length} 项）`);
+				} else {
+					new Notice(`已从 AI 上下文队列移除（当前共 ${this.selectionStore.getSelectedContexts().length} 项）`);
+				}
 			}
 		});
 
