@@ -6,15 +6,19 @@ import {CodeBlockSelectionStore} from "./selectionStore";
 import {AIPromptSuggest} from "./promptSuggest";
 import {AITaskView, AI_TASK_VIEW_TYPE} from "./aiTaskView";
 import {registerPluginCommands} from "./commands/registerCommands";
+import {MemoryManager} from "./memory/memoryManager";
 
 // Remember to rename these classes and interfaces!
 
 export default class MyPlugin extends Plugin {
 	settings!: MyPluginSettings;
 	readonly selectionStore = new CodeBlockSelectionStore();
+	memoryManager!: MemoryManager;
 
 	async onload() {
 		await this.loadSettings();
+		this.memoryManager = new MemoryManager(this.app, () => this.settings);
+		await this.memoryManager.init();
 
 		// Register View
 		this.registerView(

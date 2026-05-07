@@ -4,6 +4,7 @@ import { streamDashScope } from "../ai";
 import { createCodeBlockContext } from "../selectionStore";
 import { CodeBlockSelectionStore } from "../selectionStore";
 import { MyPluginSettings } from "../settings";
+import { MemoryManager } from "../memory/memoryManager";
 
 interface CommandDefinition {
 	id: string;
@@ -24,6 +25,7 @@ export interface CommandHost {
 	manifest: { id: string };
 	settings: MyPluginSettings;
 	selectionStore: CodeBlockSelectionStore;
+	memoryManager: MemoryManager;
 	activateView: () => Promise<void>;
 	openSampleModal: () => void;
 	addCommand: (command: CommandDefinition) => unknown;
@@ -239,6 +241,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			let currentLine = cursor.line + (enableThinking ? 5 : 3);
 			let currentCh = 0;
 			let isAnswering = !enableThinking;
+			let accumulatedAnswer = "";
 
 			await streamDashScope(
 				question,
@@ -263,6 +266,8 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						editor.setCursor({ line: currentLine, ch: currentCh });
 					},
 					onContent: (chunk) => {
+						accumulatedAnswer += chunk;
+
 						if (!isAnswering && enableThinking) {
 							isAnswering = true;
 							const endQuote = "\n```\n\n---\n\n";
@@ -295,6 +300,8 @@ export function registerPluginCommands(plugin: CommandHost): void {
 							line: currentLine,
 							ch: currentCh,
 						});
+						// Record turn in memory system (fire-and-forget)
+						void plugin.memoryManager.recordTurn(question, accumulatedAnswer);
 					},
 				},
 				plugin.settings.aiBaseUrl,
@@ -304,8 +311,19 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				)?.content || plugin.settings.systemPromptTemplate,
 				plugin.settings.savedSoulPrompts?.find(
 					(p) => p.id === plugin.settings.activeSoulPromptId
-				)?.content || ""
+				)?.content || "",
+				plugin.memoryManager.getConversationHistory(),
+				plugin.memoryManager.buildMemoryContext()
 			);
+		},
+	});
+
+	plugin.addCommand({
+		id: "clear-memory-session",
+		name: "Clear memory session (short-term)",
+		callback: () => {
+			plugin.memoryManager.clearSession();
+			new Notice("✓ 已清空当前会话短期记忆。");
 		},
 	});
 

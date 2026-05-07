@@ -25,6 +25,13 @@ export interface MyPluginSettings {
 	
 	savedSoulPrompts: NamedPrompt[];
 	activeSoulPromptId: string;
+
+	// Memory system
+	memoryEnabled: boolean;
+	memoryDirectory: string;
+	maxTokensBeforeCompression: number;
+	maxTurnsBeforeCompression: number;
+	recentTurnsToKeep: number;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -49,6 +56,13 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	
 	savedSoulPrompts: [],
 	activeSoulPromptId: '',
+
+	// Memory system
+	memoryEnabled: true,
+	memoryDirectory: 'memory',
+	maxTokensBeforeCompression: 100000,
+	maxTurnsBeforeCompression: 10,
+	recentTurnsToKeep: 4,
 }
 
 export class SampleSettingTab extends PluginSettingTab {
@@ -161,5 +175,71 @@ export class SampleSettingTab extends PluginSettingTab {
 				.filter(line => line.length > 0);
 			void this.plugin.saveSettings();
 		});
+
+		// ── 记忆系统 ────────────────────────────────────────────────────────
+		new Setting(containerEl).setName('记忆系统').setHeading();
+
+		new Setting(containerEl)
+			.setName('启用记忆系统')
+			.setDesc('开启后，AI 对话历史将自动存储、压缩，并注入到后续对话的上下文中。')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.memoryEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings.memoryEnabled = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('记忆存储目录')
+			.setDesc('相对于 Vault 根目录的路径，用于存放所有记忆 Markdown 文件。')
+			.addText(text => text
+				.setPlaceholder('memory')
+				.setValue(this.plugin.settings.memoryDirectory)
+				.onChange(async (value) => {
+					this.plugin.settings.memoryDirectory = value.trim() || 'memory';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('触发压缩的 Token 上限')
+			.setDesc('对话累积 Token 估算值超过此阈值时，后台自动触发压缩。')
+			.addText(text => text
+				.setPlaceholder('100000')
+				.setValue(String(this.plugin.settings.maxTokensBeforeCompression))
+				.onChange(async (value) => {
+					const num = parseInt(value, 10);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.maxTokensBeforeCompression = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('触发压缩的对话轮次上限')
+			.setDesc('用户发送消息轮次超过此值时，后台自动触发压缩。')
+			.addText(text => text
+				.setPlaceholder('10')
+				.setValue(String(this.plugin.settings.maxTurnsBeforeCompression))
+				.onChange(async (value) => {
+					const num = parseInt(value, 10);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.maxTurnsBeforeCompression = num;
+						await this.plugin.saveSettings();
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('压缩后保留的最近轮次数')
+			.setDesc('压缩后短期窗口中保留的最近对话轮次（每轮包含问 + 答）。')
+			.addText(text => text
+				.setPlaceholder('4')
+				.setValue(String(this.plugin.settings.recentTurnsToKeep))
+				.onChange(async (value) => {
+					const num = parseInt(value, 10);
+					if (!isNaN(num) && num > 0) {
+						this.plugin.settings.recentTurnsToKeep = num;
+						await this.plugin.saveSettings();
+					}
+				}));
 	}
 }

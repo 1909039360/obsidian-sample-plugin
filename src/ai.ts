@@ -7,6 +7,11 @@ export interface AIStreamCallbacks {
 	onComplete: () => void;
 }
 
+export interface AIMessage {
+	role: 'user' | 'assistant' | 'system';
+	content: string;
+}
+
 export async function streamDashScope(
 	query: string,
 	contexts: CodeBlockContext[],
@@ -16,7 +21,9 @@ export async function streamDashScope(
 	baseUrl?: string,
 	model?: string,
 	systemPromptTemplate?: string,
-	soulPrompt?: string
+	soulPrompt?: string,
+	conversationHistory?: AIMessage[],
+	memoryContext?: string
 ) {
 	if (!apiKey) {
 		callbacks.onError(new Error("API Key 尚未配置，请在设置中配置。"));
@@ -40,6 +47,17 @@ export async function streamDashScope(
 			systemPrompt += "\n\n" + soulPrompt;
 		}
 		
+		// Inject memory context via {{MEMORY}} placeholder
+		if (memoryContext) {
+			if (systemPrompt.includes("{{MEMORY}}")) {
+				systemPrompt = systemPrompt.replace("{{MEMORY}}", memoryContext);
+			} else {
+				systemPrompt += "\n\n" + memoryContext;
+			}
+		} else {
+			systemPrompt = systemPrompt.replace("{{MEMORY}}", "");
+		}
+
 		if (contextStr) {
 			if (systemPrompt.includes("{{CONTEXT}}")) {
 				systemPrompt = systemPrompt.replace("{{CONTEXT}}", contextStr);
@@ -60,6 +78,7 @@ export async function streamDashScope(
 				model: resolvedModel,
 				messages: [
 					{ role: 'system', content: systemPrompt },
+					...(conversationHistory ?? []),
 					{ role: 'user', content: query }
 				],
 				enable_thinking: enableThinking,
