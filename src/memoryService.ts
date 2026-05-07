@@ -329,7 +329,7 @@ export class MemoryService {
 		await this.ensureFolder(logsFolder);
 
 		const filePath = normalizePath(
-			`${logsFolder}/memory-compression-${timestamp.replace(/:/g, "-")}.md`,
+			`${logsFolder}/memory-compression-${timestamp.replace(/[:.]/g, "-")}.md`,
 		);
 		const content = createCompressionLogContent(
 			timestamp,
@@ -343,7 +343,7 @@ export class MemoryService {
 	}
 
 	private async ensureFolder(folderPath: string): Promise<void> {
-		const segments = folderPath.split("/").filter(Boolean);
+		const segments = normalizePath(folderPath).split("/").filter(Boolean);
 		let currentPath = "";
 
 		for (const segment of segments) {

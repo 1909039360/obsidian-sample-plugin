@@ -9,8 +9,6 @@ import {MemoryService} from "./memoryService";
 import {DEFAULT_MEMORY_STATE, sanitizeMemoryState, type MemoryState} from "./memoryTypes";
 import {AIPromptSuggest} from "./promptSuggest";
 
-// Remember to rename these classes and interfaces!
-
 export default class MyPlugin extends Plugin {
 	settings!: MyPluginSettings;
 	memoryState: MemoryState = DEFAULT_MEMORY_STATE;

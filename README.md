@@ -57,7 +57,7 @@ Quick starting guide for new plugin devs:
 - After a compression pass, the plugin keeps the most recent 4 conversation rounds uncompressed by default.
 - Long-term memory entries use update-first merging, so newer stable facts replace older ones with the same key.
 - User profile entries below the confidence threshold are discarded.
-- Each compression writes a task log under `.obsidian/plugins/sample-plugin/task-logs/`.
+- Each compression writes a task log under `.obsidian/plugins/<plugin-id>/task-logs/` using the plugin ID from `manifest.json`.
 
 ## Manually installing the plugin
 
