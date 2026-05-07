@@ -296,7 +296,7 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		const loadedData = await this.loadData();
+		const loadedData: unknown = await this.loadData();
 		if (isPersistedPluginData(loadedData)) {
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData.settings);
 			this.memoryState = sanitizeMemoryState(loadedData.memoryState);

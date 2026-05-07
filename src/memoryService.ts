@@ -246,7 +246,6 @@ export class MemoryService {
 	private async compressHistory(stateBeforeCompression: MemoryState): Promise<void> {
 		const apiKey = this.getApiKey().trim();
 		if (!apiKey) {
-			new Notice("AI 记忆压缩已跳过：请先配置 DashScope API Key。");
 			return;
 		}
 
