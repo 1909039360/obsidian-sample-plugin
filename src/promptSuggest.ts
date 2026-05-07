@@ -2,6 +2,7 @@ import { App, Editor, EditorPosition, EditorSuggest, EditorSuggestContext, Edito
 import { MyPluginSettings } from './settings';
 
 const BUILTIN_PROMPTS = [
+	"翻译成中文",
 	"总结这段文字",
 	"解释这段代码",
 	"重构这段代码",

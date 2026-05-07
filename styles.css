@@ -301,3 +301,73 @@ If your plugin does not need CSS, delete this file.
 	font-size: 0.9em;
 	resize: vertical;
 }
+
+/* ── AI task view 样式 ────────────────────────────────────── */
+
+.ai-task-toolbar {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.ai-context-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 4px 8px;
+	margin-bottom: 4px;
+}
+
+.ai-context-history-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 4px 8px;
+	margin-bottom: 4px;
+	opacity: 0.7;
+}
+
+.ai-context-preview {
+	font-size: 0.8em;
+}
+
+.ai-context-divider {
+	margin: 16px 0;
+}
+
+.ai-prompt-divider {
+	margin: 20px 0;
+}
+
+.ai-prompt-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.ai-prompt-select-row {
+	margin-bottom: 8px;
+}
+
+.ai-prompt-select {
+	width: 70%;
+}
+
+.ai-prompt-delete-btn {
+	margin-left: 8px;
+}
+
+.ai-prompt-name-input {
+	width: 100%;
+	margin-bottom: 4px;
+}
+
+.ai-prompt-content-input {
+	width: 100%;
+	min-height: 80px;
+	resize: vertical;
+}

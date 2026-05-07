@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon, Notice, Setting } from "obsidian";
+import { ItemView, WorkspaceLeaf, setIcon, Notice } from "obsidian";
 import { CodeBlockSelectionStore, createCodeBlockContext } from "./selectionStore";
 import { MyPluginSettings } from "./settings";
 
@@ -39,12 +39,9 @@ export class AITaskView extends ItemView {
 		container.empty();
 		container.addClass("ai-task-view");
 
-		const header = container.createEl("h3", { text: "AI Context Manager" });
+		container.createEl("h3", { text: "AI Context Manager" });
 
 		const toolbar = container.createEl("div", { cls: "ai-task-toolbar" });
-		toolbar.style.display = "flex";
-		toolbar.style.gap = "8px";
-		toolbar.style.marginBottom = "10px";
 
 		// Clear all button
 		const clearBtn = toolbar.createEl("button", { text: "Clear All Contexts", cls: "ai-clear-btn" });
@@ -105,13 +102,6 @@ export class AITaskView extends ItemView {
 		} else {
 			contexts.forEach((ctx, idx) => {
 				const itemDiv = this.contextContainer.createEl("div", { cls: "ai-context-item" });
-				itemDiv.style.display = "flex";
-				itemDiv.style.justifyContent = "space-between";
-				itemDiv.style.alignItems = "center";
-				itemDiv.style.border = "1px solid var(--background-modifier-border)";
-				itemDiv.style.borderRadius = "4px";
-				itemDiv.style.padding = "4px 8px";
-				itemDiv.style.marginBottom = "4px";
 
 				const info = itemDiv.createEl("div");
 				info.createEl("strong", { text: `[${idx+1}] ${ctx.language}` });
@@ -123,7 +113,7 @@ export class AITaskView extends ItemView {
 
 				info.createEl("small", { text: fileInfo !== 'Clipboard' ? `${fileInfo} (${linesInfo})` : fileInfo, cls: "text-muted" });
 				info.createEl("br");
-				info.createEl("span", { text: previewText, cls: "text-muted" }).style.fontSize = "0.8em";
+				info.createEl("span", { text: previewText, cls: "text-muted ai-context-preview" });
 
 				const removeBtn = itemDiv.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "Remove" } });
 				setIcon(removeBtn, "trash");
@@ -136,25 +126,17 @@ export class AITaskView extends ItemView {
 		// Render History
 		const history = this.store.getHistory();
 		if (history.length > 0) {
-			this.contextContainer.createEl("hr").style.margin = "16px 0";
+			this.contextContainer.createEl("hr", { cls: "ai-context-divider" });
 			this.contextContainer.createEl("h4", { text: "History (Last 5)" });
 			
 			history.forEach((ctx, idx) => {
 				const itemDiv = this.contextContainer.createEl("div", { cls: "ai-context-history-item" });
-				itemDiv.style.display = "flex";
-				itemDiv.style.justifyContent = "space-between";
-				itemDiv.style.alignItems = "center";
-				itemDiv.style.border = "1px dashed var(--background-modifier-border)";
-				itemDiv.style.borderRadius = "4px";
-				itemDiv.style.padding = "4px 8px";
-				itemDiv.style.marginBottom = "4px";
-				itemDiv.style.opacity = "0.7";
 
 				const info = itemDiv.createEl("div");
 				const previewText = ctx.content.length > 30 ? ctx.content.replace(/\s+/g, ' ').substring(0, 30) + "..." : ctx.content;
 				info.createEl("small", { text: ctx.sourcePath !== 'Clipboard' ? `${ctx.sourcePath} (${ctx.language})` : 'Clipboard' });
 				info.createEl("br");
-				info.createEl("span", { text: previewText }).style.fontSize = "0.8em";
+				info.createEl("span", { text: previewText, cls: "ai-context-preview" });
 
 				const restoreBtn = itemDiv.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "Restore" } });
 				setIcon(restoreBtn, "plus-with-circle");
@@ -165,9 +147,9 @@ export class AITaskView extends ItemView {
 		}
 
 		// Prompts config container
-		this.contextContainer.createEl("hr").style.margin = "20px 0";
+		this.contextContainer.createEl("hr", { cls: "ai-prompt-divider" });
 		this.renderPromptConfig("System Prompt", "savedSystemPrompts", "activeSystemPromptId");
-		this.contextContainer.createEl("hr").style.margin = "20px 0";
+		this.contextContainer.createEl("hr", { cls: "ai-prompt-divider" });
 		this.renderPromptConfig("Soul Prompt (回答个性)", "savedSoulPrompts", "activeSoulPromptId");
 	}
 
@@ -180,9 +162,6 @@ export class AITaskView extends ItemView {
 		const list = settings[listKey];
 		
 		const headerDiv = this.contextContainer.createEl("div", { cls: "ai-prompt-header" });
-		headerDiv.style.display = "flex";
-		headerDiv.style.justifyContent = "space-between";
-		headerDiv.style.alignItems = "center";
 		headerDiv.createEl("h4", { text: title, cls: "ai-prompt-title" });
 
 		const newBtn = headerDiv.createEl("button", { text: "+ New", cls: "ai-prompt-new-btn" });
@@ -199,11 +178,9 @@ export class AITaskView extends ItemView {
 			return;
 		}
 
-		const selectDiv = this.contextContainer.createEl("div");
-		selectDiv.style.marginBottom = "8px";
+		const selectDiv = this.contextContainer.createEl("div", { cls: "ai-prompt-select-row" });
 		
-		const select = selectDiv.createEl("select", { cls: "dropdown" });
-		select.style.width = "70%";
+		const select = selectDiv.createEl("select", { cls: "dropdown ai-prompt-select" });
 		
 		// Add an empty option for Soul Prompts if none active
 		if (activeKey === "activeSoulPromptId") {
@@ -226,8 +203,7 @@ export class AITaskView extends ItemView {
 		const activePrompt = list.find(p => p.id === settings[activeKey]);
 		
 		if (activePrompt) {
-			const deleteBtn = selectDiv.createEl("button", { cls: "clickable-icon" });
-			deleteBtn.style.marginLeft = "8px";
+			const deleteBtn = selectDiv.createEl("button", { cls: "clickable-icon ai-prompt-delete-btn" });
 			setIcon(deleteBtn, "trash");
 			deleteBtn.onclick = async () => {
 				settings[listKey] = list.filter((p: any) => p.id !== activePrompt.id) as any;
@@ -237,8 +213,7 @@ export class AITaskView extends ItemView {
 			};
 
 			const nameInput = this.contextContainer.createEl("input", { type: "text" });
-			nameInput.style.width = "100%";
-			nameInput.style.marginBottom = "4px";
+			nameInput.addClass("ai-prompt-name-input");
 			nameInput.value = activePrompt.name;
 			nameInput.placeholder = "Prompt Name";
 			nameInput.onchange = async () => {
@@ -248,9 +223,7 @@ export class AITaskView extends ItemView {
 			};
 
 			const textInput = this.contextContainer.createEl("textarea");
-			textInput.style.width = "100%";
-			textInput.style.minHeight = "80px";
-			textInput.style.resize = "vertical";
+			textInput.addClass("ai-prompt-content-input");
 			textInput.value = activePrompt.content;
 			textInput.placeholder = title === "System Prompt" ? "你是一个... {{CONTEXT}}" : "用鲁迅的语气回答...";
 			textInput.onchange = async () => {
