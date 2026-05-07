@@ -323,9 +323,7 @@ export class MemoryService {
 		rejectedProfileEntries: Array<{ key: string; summary: string; confidence: number }>,
 		error: Error | null,
 	): Promise<void> {
-		const logsFolder = normalizePath(
-			`${this.app.vault.configDir}/plugins/${this.pluginId}/task-logs`,
-		);
+		const logsFolder = this.getTaskLogsFolder();
 		await this.ensureFolder(logsFolder);
 
 		const filePath = normalizePath(
@@ -340,6 +338,12 @@ export class MemoryService {
 			error,
 		);
 		await this.app.vault.create(filePath, content);
+	}
+
+	private getTaskLogsFolder(): string {
+		return normalizePath(
+			`${this.app.vault.configDir}/plugins/${this.pluginId}/task-logs`,
+		);
 	}
 
 	private async ensureFolder(folderPath: string): Promise<void> {

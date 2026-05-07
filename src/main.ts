@@ -295,7 +295,7 @@ export default class MyPlugin extends Plugin {
 
 	async loadSettings() {
 		const loadedData: unknown = await this.loadData();
-		if (isPersistedPluginData(loadedData)) {
+		if (hasPersistedPluginFields(loadedData)) {
 			this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData.settings);
 			this.memoryState = sanitizeMemoryState(loadedData.memoryState);
 			return;
@@ -317,7 +317,7 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-function isPersistedPluginData(
+function hasPersistedPluginFields(
 	value: unknown
 ): value is { settings?: Partial<MyPluginSettings>; memoryState?: MemoryState } {
 	return typeof value === "object" && value !== null &&
