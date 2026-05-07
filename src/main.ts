@@ -5,16 +5,30 @@ import {registerCodeBlockCollapser} from "./codeBlockCollapser";
 import {createEditorCodeBlockCollapserExtension} from "./editorCodeBlockCollapser";
 import {CodeBlockSelectionStore} from "./selectionStore";
 import {streamDashScope} from "./ai";
+import {MemoryService} from "./memoryService";
+import {DEFAULT_MEMORY_STATE, sanitizeMemoryState, type MemoryState} from "./memoryTypes";
 import {AIPromptSuggest} from "./promptSuggest";
 
 // Remember to rename these classes and interfaces!
 
 export default class MyPlugin extends Plugin {
 	settings!: MyPluginSettings;
+	memoryState: MemoryState = DEFAULT_MEMORY_STATE;
+	memoryService!: MemoryService;
 	readonly selectionStore = new CodeBlockSelectionStore();
 
 	async onload() {
 		await this.loadSettings();
+		this.memoryService = new MemoryService({
+			app: this.app,
+			pluginId: this.manifest.id,
+			getApiKey: () => this.settings.dashScopeApiKey,
+			getState: () => this.memoryState,
+			saveState: async (memoryState) => {
+				this.memoryState = memoryState;
+				await this.savePluginData();
+			}
+		});
 
 		// This creates an icon in the left ribbon.
 		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
@@ -155,6 +169,8 @@ export default class MyPlugin extends Plugin {
 
 				const question = match[1].trim();
 				const contexts = this.selectionStore.getSelectedContexts();
+				const memoryContext = this.memoryService.buildPromptContext();
+				let answerBuffer = "";
 				
 				// 去除问题前后的 //
 				// match.index 是整个 //问题// 开始的位置
@@ -200,6 +216,8 @@ export default class MyPlugin extends Plugin {
 							editor.setCursor({ line: currentLine, ch: currentCh });
 						},
 						onContent: (chunk) => {
+							answerBuffer += chunk;
+
 							if (!isAnswering && enableThinking) {
 								isAnswering = true;
 								const endQuote = "\n```\n\n---\n\n";
@@ -228,9 +246,11 @@ export default class MyPlugin extends Plugin {
 						},
 						onComplete: () => {
 							editor.replaceRange("\n\n---\n", { line: currentLine, ch: currentCh });
+							void this.memoryService.recordConversation(question, answerBuffer);
 							// new Notice("AI 回答已完成！");
 						}
-					}
+					},
+					memoryContext
 				);
 			}
 		});
@@ -276,12 +296,34 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		const loadedData = await this.loadData();
+		if (isPersistedPluginData(loadedData)) {
+			this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData.settings);
+			this.memoryState = sanitizeMemoryState(loadedData.memoryState);
+			return;
+		}
+
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData as Partial<MyPluginSettings>);
+		this.memoryState = DEFAULT_MEMORY_STATE;
 	}
 
 	async saveSettings() {
-		await this.saveData(this.settings);
+		await this.savePluginData();
 	}
+
+	private async savePluginData() {
+		await this.saveData({
+			settings: this.settings,
+			memoryState: this.memoryState,
+		});
+	}
+}
+
+function isPersistedPluginData(
+	value: unknown
+): value is { settings?: Partial<MyPluginSettings>; memoryState?: MemoryState } {
+	return typeof value === "object" && value !== null &&
+		("settings" in value || "memoryState" in value);
 }
 
 class SampleModal extends Modal {

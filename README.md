@@ -51,6 +51,14 @@ Quick starting guide for new plugin devs:
 - `npm i` or `yarn` to install dependencies.
 - `npm run dev` to start compilation in watch mode.
 
+## AI memory behavior
+
+- AI completion now keeps a cloud-backed memory summary when the DashScope API is configured.
+- After a compression pass, the plugin keeps the most recent 4 conversation rounds uncompressed by default.
+- Long-term memory entries use update-first merging, so newer stable facts replace older ones with the same key.
+- User profile entries below the confidence threshold are discarded.
+- Each compression writes a task log under `.obsidian/plugins/sample-plugin/task-logs/`.
+
 ## Manually installing the plugin
 
 - Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
