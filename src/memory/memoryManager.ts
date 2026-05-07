@@ -11,12 +11,36 @@ export class MemoryManager {
 	private compressionService: CompressionService;
 	private app: App;
 	private getSettings: () => MyPluginSettings;
+	private active = true;
+	private listeners: Array<() => void> = [];
 
 	constructor(app: App, getSettings: () => MyPluginSettings) {
 		this.app = app;
 		this.getSettings = getSettings;
 		this.store = new ConversationStore();
 		this.compressionService = new CompressionService();
+	}
+
+	/** Toggle memory active state; returns the new state. */
+	toggle(): boolean {
+		this.active = !this.active;
+		this.notify();
+		return this.active;
+	}
+
+	isActive(): boolean {
+		return this.active;
+	}
+
+	subscribe(listener: () => void): () => void {
+		this.listeners.push(listener);
+		return () => {
+			this.listeners = this.listeners.filter(l => l !== listener);
+		};
+	}
+
+	private notify(): void {
+		this.listeners.forEach(l => l());
 	}
 
 	async init(): Promise<void> {
@@ -40,7 +64,7 @@ export class MemoryManager {
 	 */
 	async recordTurn(question: string, answer: string): Promise<void> {
 		const settings = this.getSettings();
-		if (!settings.memoryEnabled) return;
+		if (!settings.memoryEnabled || !this.active) return;
 
 		this.store.addTurn('user', question);
 		this.store.addTurn('assistant', answer);
@@ -68,7 +92,7 @@ export class MemoryManager {
 	 */
 	getConversationHistory(): AIMessage[] {
 		const settings = this.getSettings();
-		if (!settings.memoryEnabled) return [];
+		if (!settings.memoryEnabled || !this.active) return [];
 		return this.store.toMessages() as AIMessage[];
 	}
 
@@ -77,7 +101,7 @@ export class MemoryManager {
 	 */
 	buildMemoryContext(): string {
 		const settings = this.getSettings();
-		if (!settings.memoryEnabled) return '';
+		if (!settings.memoryEnabled || !this.active) return '';
 
 		const parts: string[] = ['[记忆系统]'];
 		const summary = this.store.getSummaryPrefix();

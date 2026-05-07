@@ -42,6 +42,16 @@ export function registerPluginCommands(plugin: CommandHost): void {
 	});
 
 	plugin.addCommand({
+		id: "toggle-memory",
+		name: "Toggle memory (on/off)",
+		hotkeys: [{ modifiers: ["Mod"], key: "m" }],
+		callback: () => {
+			const isOn = plugin.memoryManager.toggle();
+			new Notice(isOn ? "✓ 记忆已开启" : "✗ 记忆已关闭");
+		},
+	});
+
+	plugin.addCommand({
 		id: "open-modal-simple",
 		name: "Open modal (simple)",
 		callback: () => {

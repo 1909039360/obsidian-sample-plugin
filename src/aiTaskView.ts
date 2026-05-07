@@ -1,6 +1,7 @@
 import { ItemView, WorkspaceLeaf, setIcon, Notice } from "obsidian";
 import { CodeBlockSelectionStore, createCodeBlockContext } from "./selectionStore";
 import { MyPluginSettings } from "./settings";
+import { MemoryManager } from "./memory/memoryManager";
 
 import MyPlugin from "./main";
 
@@ -10,15 +11,19 @@ export class AITaskView extends ItemView {
 	store: CodeBlockSelectionStore;
 	settings: () => MyPluginSettings;
 	plugin: MyPlugin;
-	unsubscribeStore: () => void;
+	memoryManager: MemoryManager;
+	unsubscribeStore!: () => void;
+	unsubscribeMemory!: () => void;
 
-	contextContainer: HTMLElement;
+	contextContainer!: HTMLElement;
+	memoryToggleBtn!: HTMLElement;
 
 	constructor(leaf: WorkspaceLeaf, store: CodeBlockSelectionStore, settings: () => MyPluginSettings, plugin: MyPlugin) {
 		super(leaf);
 		this.store = store;
 		this.settings = settings;
 		this.plugin = plugin;
+		this.memoryManager = plugin.memoryManager;
 	}
 
 	getViewType() {
@@ -74,12 +79,24 @@ export class AITaskView extends ItemView {
 			}
 		};
 
+		// Memory toggle button
+		this.memoryToggleBtn = toolbar.createEl("button", { cls: "ai-memory-btn" });
+		this.updateMemoryToggleBtn();
+		this.memoryToggleBtn.onclick = () => {
+			this.plugin.memoryManager.toggle();
+		};
+
 		// Context items list
 		this.contextContainer = container.createEl("div", { cls: "ai-context-container" });
 
 		// Subscribe to store changes to re-render context list
 		this.unsubscribeStore = this.store.subscribe(() => {
 			this.renderContexts();
+		});
+
+		// Subscribe to memory state changes to update the toggle button
+		this.unsubscribeMemory = this.plugin.memoryManager.subscribe(() => {
+			this.updateMemoryToggleBtn();
 		});
 
 		this.renderContexts();
@@ -89,6 +106,17 @@ export class AITaskView extends ItemView {
 		if (this.unsubscribeStore) {
 			this.unsubscribeStore();
 		}
+		if (this.unsubscribeMemory) {
+			this.unsubscribeMemory();
+		}
+	}
+
+	private updateMemoryToggleBtn() {
+		if (!this.memoryToggleBtn) return;
+		const on = this.plugin.memoryManager.isActive();
+		this.memoryToggleBtn.setText(on ? "Memory: ON" : "Memory: OFF");
+		this.memoryToggleBtn.toggleClass("ai-memory-btn--off", !on);
+		this.memoryToggleBtn.toggleClass("ai-memory-btn--on", on);
 	}
 
 	renderContexts() {
