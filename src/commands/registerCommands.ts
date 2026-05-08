@@ -5,6 +5,7 @@ import { createCodeBlockContext } from "../selectionStore";
 import { CodeBlockSelectionStore } from "../selectionStore";
 import { MyPluginSettings } from "../settings";
 import { MemoryManager } from "../memory/memoryManager";
+import { AI_TASK_VIEW_TYPE, AITaskView } from "../aiTaskView";
 
 interface CommandDefinition {
 	id: string;
@@ -28,6 +29,7 @@ export interface CommandHost {
 	memoryManager: MemoryManager;
 	activateView: () => Promise<void>;
 	openSampleModal: () => void;
+	saveSettings: () => Promise<void>;
 	addCommand: (command: CommandDefinition) => unknown;
 }
 
@@ -48,6 +50,25 @@ export function registerPluginCommands(plugin: CommandHost): void {
 		callback: () => {
 			const isOn = plugin.memoryManager.toggle();
 			new Notice(isOn ? "✓ 记忆已开启" : "✗ 记忆已关闭");
+		},
+	});
+
+	plugin.addCommand({
+		id: "toggle-thinking",
+		name: "Toggle thinking (on/off)",
+		hotkeys: [{ modifiers: ["Mod", "Shift"], key: "m" }],
+		callback: async () => {
+			plugin.settings.enableThinking = !plugin.settings.enableThinking;
+			await plugin.saveSettings();
+
+			plugin.app.workspace.getLeavesOfType(AI_TASK_VIEW_TYPE).forEach((leaf) => {
+				const view = leaf.view;
+				if (view instanceof AITaskView) {
+					view.updateThinkingToggleBtn();
+				}
+			});
+
+			new Notice(plugin.settings.enableThinking ? "✓ Thinking 模式已开启" : "✗ Thinking 模式已关闭");
 		},
 	});
 

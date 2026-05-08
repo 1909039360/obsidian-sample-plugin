@@ -17,6 +17,7 @@ export class AITaskView extends ItemView {
 
 	contextContainer!: HTMLElement;
 	memoryToggleBtn!: HTMLElement;
+	thinkingToggleBtn!: HTMLElement;
 
 	constructor(leaf: WorkspaceLeaf, store: CodeBlockSelectionStore, settings: () => MyPluginSettings, plugin: MyPlugin) {
 		super(leaf);
@@ -86,6 +87,16 @@ export class AITaskView extends ItemView {
 			this.plugin.memoryManager.toggle();
 		};
 
+		// Thinking toggle button
+		this.thinkingToggleBtn = toolbar.createEl("button", { cls: "ai-thinking-btn" });
+		this.updateThinkingToggleBtn();
+		this.thinkingToggleBtn.onclick = async () => {
+			this.plugin.settings.enableThinking = !this.plugin.settings.enableThinking;
+			await this.plugin.saveSettings();
+			this.updateThinkingToggleBtn();
+			new Notice(this.plugin.settings.enableThinking ? "✓ Thinking 模式已开启" : "✗ Thinking 模式已关闭");
+		};
+
 		// Context items list
 		this.contextContainer = container.createEl("div", { cls: "ai-context-container" });
 
@@ -117,6 +128,14 @@ export class AITaskView extends ItemView {
 		this.memoryToggleBtn.setText(on ? "Memory: ON" : "Memory: OFF");
 		this.memoryToggleBtn.toggleClass("ai-memory-btn--off", !on);
 		this.memoryToggleBtn.toggleClass("ai-memory-btn--on", on);
+	}
+
+	updateThinkingToggleBtn() {
+		if (!this.thinkingToggleBtn) return;
+		const on = this.plugin.settings.enableThinking;
+		this.thinkingToggleBtn.setText(on ? "Thinking: ON" : "Thinking: OFF");
+		this.thinkingToggleBtn.toggleClass("ai-thinking-btn--off", !on);
+		this.thinkingToggleBtn.toggleClass("ai-thinking-btn--on", on);
 	}
 
 	renderContexts() {
