@@ -152,8 +152,8 @@ If your plugin does not need CSS, delete this file.
 
 .cbf-editor-toggle-host {
 	position: absolute;
-	right: 120px;
-	top:100%;
+	right: 1px;
+	top:90%;
 	transform: translateY(-50%);
 	display: inline-flex;
 	align-items: center;
@@ -401,4 +401,13 @@ If your plugin does not need CSS, delete this file.
 	width: 100%;
 	min-height: 80px;
 	resize: vertical;
+}
+
+/* 将代码块右上角的语言标签（如 TypeScript）移动到最左侧 */
+.markdown-source-view.mod-cm6 .code-block-flair {
+	right: auto !important;
+	top: -10% !important;   
+	left: 5px !important;
+	font-weight: bold;
+	color: #04000a6c;  
 }
