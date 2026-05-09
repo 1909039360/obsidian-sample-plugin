@@ -161,12 +161,14 @@ If your plugin does not need CSS, delete this file.
 	z-index: 5;
 }
 
-.cbf-editor-select-toggle {
+.cbf-editor-select-toggle,
+.cbf-editor-toggle,
+.cbf-editor-copy-toggle {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 24px;
-	height: 24px;
+	width: 26px;
+	height: 26px;
 	padding: 0;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 4px;
@@ -179,26 +181,9 @@ If your plugin does not need CSS, delete this file.
 		border-color 120ms ease, box-shadow 120ms ease;
 }
 
-.cbf-editor-toggle {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
-	padding: 0;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 4px;
-	background: var(--background-secondary);
-	color: var(--text-muted);
-	cursor: pointer;
-	line-height: 1;
-	box-shadow: 0 2px 4px rgba(180, 150, 255, 0.25);
-	transition: background-color 120ms ease, color 120ms ease,
-		border-color 120ms ease;
-}
-
 .cbf-editor-toggle:hover,
-.cbf-editor-select-toggle:hover {
+.cbf-editor-select-toggle:hover,
+.cbf-editor-copy-toggle:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
 	box-shadow: 0 2px 6px rgba(180, 150, 255, 0.4);
