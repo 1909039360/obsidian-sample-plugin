@@ -28,8 +28,7 @@ class FoldToggleWidget extends WidgetType {
 	constructor(
 		private readonly block: CodeBlockPosition,
 		private readonly isSelected: boolean,
-		private readonly selectionStore: CodeBlockSelectionStore,
-		private readonly isBottom: boolean = false
+		private readonly selectionStore: CodeBlockSelectionStore
 	) {
 		super();
 	}
@@ -39,8 +38,7 @@ class FoldToggleWidget extends WidgetType {
 			other.block.startPos === this.block.startPos &&
 			other.block.endPos === this.block.endPos &&
 			other.block.language === this.block.language &&
-			other.isSelected === this.isSelected &&
-			other.isBottom === this.isBottom
+			other.isSelected === this.isSelected
 		);
 	}
 
@@ -66,7 +64,7 @@ class FoldToggleWidget extends WidgetType {
 
 		const icon = document.createElement("span");
 		icon.className = "cbf-editor-toggle-icon";
-		setIcon(icon, this.isBottom ? "chevron-up" : "chevron-down");
+		setIcon(icon, "chevron-down");
 		button.appendChild(icon);
 
 		button.addEventListener("mousedown", (event) => {
@@ -82,7 +80,6 @@ class FoldToggleWidget extends WidgetType {
 						from: this.block.startPos,
 						to: this.block.endPos,
 					}),
-					...(this.isBottom ? [EditorView.scrollIntoView(this.block.startPos, { y: "center" })] : []),
 				],
 			});
 		});
@@ -551,22 +548,10 @@ function buildToggleDecorations(
 			block.startLineTo,
 			block.startLineTo,
 			Decoration.widget({
-				widget: new FoldToggleWidget(block, isSelected, selectionStore, false),
+				widget: new FoldToggleWidget(block, isSelected, selectionStore),
 				side: 1,
 			})
 		);
-
-		// 只有当代码块超过10行时，才在底部也显示按钮组，否则只显示顶部的按钮
-		if (block.endLine - block.startLine > 10) {
-			builder.add(
-				block.endPos,
-				block.endPos,
-				Decoration.widget({
-					widget: new FoldToggleWidget(block, isSelected, selectionStore, true),
-					side: 1,
-				})
-			);
-		}
 	}
 
 	return builder.finish();
