@@ -556,7 +556,8 @@ function buildToggleDecorations(
 			})
 		);
 
-		if (block.endLine > block.startLine) {
+		// 只有当代码块超过10行时，才在底部也显示按钮组，否则只显示顶部的按钮
+		if (block.endLine - block.startLine > 10) {
 			builder.add(
 				block.endPos,
 				block.endPos,
