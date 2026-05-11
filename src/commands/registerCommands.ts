@@ -274,6 +274,19 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			let isAnswering = !enableThinking;
 			let accumulatedAnswer = "";
 
+			const insertStreamChunk = (text: string) => {
+				const cm = (editor as any).cm;
+				if (cm) {
+					const from = editor.posToOffset({ line: currentLine, ch: currentCh });
+					cm.dispatch({
+						changes: { from, insert: text },
+						scrollIntoView: false,
+					});
+				} else {
+					editor.replaceRange(text, { line: currentLine, ch: currentCh });
+				}
+			};
+
 			await streamDashScope(
 				question,
 				contexts,
@@ -283,7 +296,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 					onReasoning: (chunk) => {
 						if (!enableThinking) return;
 
-						editor.replaceRange(chunk, { line: currentLine, ch: currentCh });
+						insertStreamChunk(chunk);
 
 						const lines = chunk.split("\n");
 						if (lines.length > 1) {
@@ -293,8 +306,6 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						} else {
 							currentCh += chunk.length;
 						}
-
-						editor.setCursor({ line: currentLine, ch: currentCh });
 					},
 					onContent: (chunk) => {
 						accumulatedAnswer += chunk;
@@ -302,15 +313,12 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						if (!isAnswering && enableThinking) {
 							isAnswering = true;
 							const endQuote = "\n```\n\n---\n\n";
-							editor.replaceRange(endQuote, {
-								line: currentLine,
-								ch: currentCh,
-							});
+							insertStreamChunk(endQuote);
 							currentLine += 5;
 							currentCh = 0;
 						}
 
-						editor.replaceRange(chunk, { line: currentLine, ch: currentCh });
+						insertStreamChunk(chunk);
 
 						const lines = chunk.split("\n");
 						if (lines.length > 1) {
@@ -320,17 +328,16 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						} else {
 							currentCh += chunk.length;
 						}
-
-						editor.setCursor({ line: currentLine, ch: currentCh });
 					},
 					onError: (error) => {
 						new Notice("AI Request Errored: " + error.message);
 					},
 					onComplete: () => {
-						editor.replaceRange("\n\n---\n", {
-							line: currentLine,
-							ch: currentCh,
-						});
+						insertStreamChunk("\n\n---\n");
+
+						currentLine += 3;
+						currentCh = 0;
+
 						// Record turn in memory system (fire-and-forget)
 						void plugin.memoryManager.recordTurn(question, accumulatedAnswer);
 					},
