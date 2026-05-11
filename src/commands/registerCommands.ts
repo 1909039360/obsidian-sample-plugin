@@ -287,6 +287,19 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				}
 			};
 
+			const setStreamCursor = () => {
+				const cm = (editor as any).cm;
+				if (cm) {
+					const anchor = editor.posToOffset({ line: currentLine, ch: currentCh });
+					cm.dispatch({
+						selection: { anchor, head: anchor },
+						scrollIntoView: false,
+					});
+				} else {
+					editor.setCursor({ line: currentLine, ch: currentCh });
+				}
+			};
+
 			await streamDashScope(
 				question,
 				contexts,
@@ -337,6 +350,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 
 						currentLine += 3;
 						currentCh = 0;
+						setStreamCursor();
 
 						// Record turn in memory system (fire-and-forget)
 						void plugin.memoryManager.recordTurn(question, accumulatedAnswer);
