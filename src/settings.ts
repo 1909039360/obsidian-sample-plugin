@@ -1,5 +1,6 @@
 import {App, PluginSettingTab, Setting} from "obsidian";
 import MyPlugin from "./main";
+import type { DocumentContextItem } from "./documentContext/types";
 
 export interface NamedPrompt {
 	id: string;
@@ -32,6 +33,8 @@ export interface MyPluginSettings {
 	maxTokensBeforeCompression: number;
 	maxTurnsBeforeCompression: number;
 	recentTurnsToKeep: number;
+	documentContextHistoryLimit: number;
+	lastDocumentContextSnapshot: DocumentContextItem[];
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -63,6 +66,8 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	maxTokensBeforeCompression: 100000,
 	maxTurnsBeforeCompression: 10,
 	recentTurnsToKeep: 4,
+	documentContextHistoryLimit: 5,
+	lastDocumentContextSnapshot: [],
 }
 
 export class SampleSettingTab extends PluginSettingTab {
@@ -145,7 +150,7 @@ export class SampleSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('系统提示词 (System Prompt)')
-			.setDesc('AI 会话中使用的系统级指令，使用 {{CONTEXT}} 占位符作为下方代码段或所选文本注入的位置。')
+			.setDesc('AI 会话中使用的系统级指令，可使用 {{CONTEXT}}、{{ACTIVE_CONTEXT}}、{{DOCUMENT_CONTEXT}}、{{MEMORY}} 占位符。')
 			.addTextArea(text => {
 				text.inputEl.addClass('cbf-prompts-textarea');
 				text.inputEl.rows = 8;

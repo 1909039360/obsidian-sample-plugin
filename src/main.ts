@@ -7,23 +7,30 @@ import {AIPromptSuggest} from "./promptSuggest";
 import {AITaskView, AI_TASK_VIEW_TYPE} from "./aiTaskView";
 import {registerPluginCommands} from "./commands/registerCommands";
 import {MemoryManager} from "./memory/memoryManager";
+import { DocumentContextStore } from "./documentContext/store";
+import { DocumentContextSuggest } from "./documentContext/suggest";
 
 // Remember to rename these classes and interfaces!
 
 export default class MyPlugin extends Plugin {
 	settings!: MyPluginSettings;
 	readonly selectionStore = new CodeBlockSelectionStore();
+	documentContextStore!: DocumentContextStore;
 	memoryManager!: MemoryManager;
 
 	async onload() {
 		await this.loadSettings();
+		this.documentContextStore = new DocumentContextStore(
+			this.settings.documentContextHistoryLimit,
+			this.settings.lastDocumentContextSnapshot
+		);
 		this.memoryManager = new MemoryManager(this.app, () => this.settings);
 		await this.memoryManager.init();
 
 		// Register View
 		this.registerView(
 			AI_TASK_VIEW_TYPE,
-			(leaf) => new AITaskView(leaf, this.selectionStore, () => this.settings, this)
+			(leaf) => new AITaskView(leaf, this.selectionStore, this.documentContextStore, () => this.settings, this)
 		);
 
 		registerPluginCommands(this);
@@ -42,6 +49,7 @@ export default class MyPlugin extends Plugin {
 
 		// 注册 AI 提示词代码提示
 		this.registerEditorSuggest(new AIPromptSuggest(this.app, () => this.settings));
+		this.registerEditorSuggest(new DocumentContextSuggest(this.app, this.documentContextStore));
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
@@ -127,6 +135,10 @@ export default class MyPlugin extends Plugin {
 			if (!this.settings.activeSystemPromptId) {
 				this.settings.activeSystemPromptId = DEFAULT_SETTINGS.activeSystemPromptId;
 			}
+		}
+
+		if (!Array.isArray(this.settings.lastDocumentContextSnapshot)) {
+			this.settings.lastDocumentContextSnapshot = [];
 		}
 	}
 

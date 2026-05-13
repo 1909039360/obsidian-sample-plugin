@@ -1,0 +1,109 @@
+import type { DocumentContextItem } from "./types";
+
+export class DocumentContextStore {
+	private readonly selectedItems = new Map<string, DocumentContextItem>();
+	private readonly listeners: Array<() => void> = [];
+	private historyItems: DocumentContextItem[] = [];
+	private lastConversationSnapshot: DocumentContextItem[];
+	private readonly historyLimit: number;
+
+	constructor(historyLimit = 5, initialSnapshot: DocumentContextItem[] = []) {
+		this.historyLimit = historyLimit;
+		this.lastConversationSnapshot = initialSnapshot;
+	}
+
+	subscribe(listener: () => void): () => void {
+		this.listeners.push(listener);
+		return () => {
+			const index = this.listeners.indexOf(listener);
+			if (index >= 0) {
+				this.listeners.splice(index, 1);
+			}
+		};
+	}
+
+	private notify(): void {
+		this.listeners.forEach((listener) => listener());
+	}
+
+	private addToHistory(item: DocumentContextItem): void {
+		this.historyItems = this.historyItems.filter((context) => context.id !== item.id);
+		this.historyItems.unshift(item);
+		if (this.historyItems.length > this.historyLimit) {
+			this.historyItems = this.historyItems.slice(0, this.historyLimit);
+		}
+	}
+
+	select(item: DocumentContextItem): void {
+		for (const context of this.selectedItems.values()) {
+			if (context.filePath === item.filePath && context.id !== item.id) {
+				this.addToHistory(context);
+				this.selectedItems.delete(context.id);
+			}
+		}
+
+		this.historyItems = this.historyItems.filter((context) => context.id !== item.id);
+		this.selectedItems.set(item.id, item);
+		this.notify();
+	}
+
+	toggle(item: DocumentContextItem): boolean {
+		if (this.selectedItems.has(item.id)) {
+			this.remove(item.id);
+			return false;
+		}
+
+		this.select(item);
+		return true;
+	}
+
+	setSelectedItems(items: DocumentContextItem[]): void {
+		for (const context of this.selectedItems.values()) {
+			this.addToHistory(context);
+		}
+
+		this.selectedItems.clear();
+		for (const item of items) {
+			this.historyItems = this.historyItems.filter((context) => context.id !== item.id);
+			this.selectedItems.set(item.id, item);
+		}
+
+		this.notify();
+	}
+
+	remove(id: string): void {
+		const item = this.selectedItems.get(id);
+		if (!item) {
+			return;
+		}
+
+		this.addToHistory(item);
+		this.selectedItems.delete(id);
+		this.notify();
+	}
+
+	clear(): void {
+		for (const item of this.selectedItems.values()) {
+			this.addToHistory(item);
+		}
+		this.selectedItems.clear();
+		this.notify();
+	}
+
+	getSelectedItems(): DocumentContextItem[] {
+		return Array.from(this.selectedItems.values()).sort((left, right) => left.selectedAt - right.selectedAt);
+	}
+
+	getHistory(): DocumentContextItem[] {
+		return [...this.historyItems];
+	}
+
+	setLastConversationSnapshot(items: DocumentContextItem[]): void {
+		this.lastConversationSnapshot = items.map((item) => ({ ...item }));
+		this.notify();
+	}
+
+	getLastConversationSnapshot(): DocumentContextItem[] {
+		return this.lastConversationSnapshot.map((item) => ({ ...item }));
+	}
+}

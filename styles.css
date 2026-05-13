@@ -411,3 +411,22 @@ If your plugin does not need CSS, delete this file.
 	font-weight: bold;
 	color: #04000a6c;  
 }
+
+.ai-document-context-item {
+	align-items: center;
+}
+
+.ai-document-context-path {
+	display: inline-block;
+	max-width: 100%;
+	word-break: break-word;
+}
+
+.ai-doc-suggest-title {
+	font-weight: 600;
+}
+
+.ai-doc-suggest-desc {
+	display: block;
+	margin-top: 2px;
+}

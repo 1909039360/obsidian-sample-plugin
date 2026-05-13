@@ -1,4 +1,5 @@
 import { CodeBlockContext } from "./selectionStore";
+import type { DocumentContextItem } from "./documentContext/types";
 
 export interface AIStreamCallbacks {
 	onReasoning: (chunk: string) => void;
@@ -12,9 +13,48 @@ export interface AIMessage {
 	content: string;
 }
 
+function formatActiveContexts(contexts: CodeBlockContext[]): string {
+	if (contexts.length === 0) {
+		return "";
+	}
+
+	return "以下是用户选中的活动上下文：\n" + contexts.map((ctx, index) => {
+		return `[片段 ${index + 1}]\n文件: ${ctx.sourcePath}\n语言: ${ctx.language}\n\`\`\`${ctx.language}\n${ctx.content}\n\`\`\``;
+	}).join("\n\n");
+}
+
+function formatDocumentContexts(items: DocumentContextItem[]): string {
+	if (items.length === 0) {
+		return "";
+	}
+
+	return "以下是用户选中的文档上下文：\n" + items.map((item, index) => {
+		const titlePath = item.titlePath.length > 0 ? item.titlePath.join(" > ") : "当前文档";
+		return [
+			`[文档 ${index + 1}]`,
+			`文件: ${item.filePath}`,
+			`标题路径: ${titlePath}`,
+			item.content,
+		].join("\n");
+	}).join("\n\n");
+}
+
+function injectPromptSection(template: string, placeholder: string, value: string): string {
+	if (template.includes(placeholder)) {
+		return template.replace(placeholder, value);
+	}
+
+	if (!value) {
+		return template;
+	}
+
+	return `${template}\n\n${value}`;
+}
+
 export async function streamDashScope(
 	query: string,
-	contexts: CodeBlockContext[],
+	activeContexts: CodeBlockContext[],
+	documentContexts: DocumentContextItem[],
 	apiKey: string,
 	enableThinking: boolean,
 	callbacks: AIStreamCallbacks,
@@ -34,12 +74,9 @@ export async function streamDashScope(
 	const resolvedModel = model?.trim() || 'deepseek-v4-flash';
 
 	try {
-		let contextStr = "";
-		if (contexts.length > 0) {
-			contextStr = "以下是用户选中的上下文内容：\n" + contexts.map((ctx, index) => {
-				return `[片段 ${index + 1}]\n文件: ${ctx.sourcePath}\n语言: ${ctx.language}\n\`\`\`${ctx.language}\n${ctx.content}\n\`\`\``;
-			}).join("\n\n");
-		}
+		const activeContextStr = formatActiveContexts(activeContexts);
+		const documentContextStr = formatDocumentContexts(documentContexts);
+		const contextStr = [activeContextStr, documentContextStr].filter(Boolean).join("\n\n");
 
 		let systemPrompt = systemPromptTemplate || "你是一个强大的 AI 助手。\n\n{{CONTEXT}}\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)";
 		
@@ -58,15 +95,9 @@ export async function streamDashScope(
 			systemPrompt = systemPrompt.replace("{{MEMORY}}", "");
 		}
 
-		if (contextStr) {
-			if (systemPrompt.includes("{{CONTEXT}}")) {
-				systemPrompt = systemPrompt.replace("{{CONTEXT}}", contextStr);
-			} else {
-				systemPrompt += "\n\n" + contextStr;
-			}
-		} else {
-			systemPrompt = systemPrompt.replace("{{CONTEXT}}", "");
-		}
+		systemPrompt = injectPromptSection(systemPrompt, "{{ACTIVE_CONTEXT}}", activeContextStr);
+		systemPrompt = injectPromptSection(systemPrompt, "{{DOCUMENT_CONTEXT}}", documentContextStr);
+		systemPrompt = injectPromptSection(systemPrompt, "{{CONTEXT}}", contextStr);
 
 		const response = await window.fetch(resolvedBaseUrl, {
 			method: 'POST',

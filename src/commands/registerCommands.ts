@@ -1,11 +1,13 @@
 import { StateEffect } from "@codemirror/state";
-import { Editor, MarkdownView, Notice } from "obsidian";
+import { App, Editor, MarkdownView, Notice } from "obsidian";
 import { streamDashScope } from "../ai";
-import { createCodeBlockContext } from "../selectionStore";
-import { CodeBlockSelectionStore } from "../selectionStore";
-import { MyPluginSettings } from "../settings";
-import { MemoryManager } from "../memory/memoryManager";
 import { AI_TASK_VIEW_TYPE, AITaskView } from "../aiTaskView";
+import { mergeDocumentContexts, resolveDocumentContextsFromLine, stripDocumentMarkersFromText } from "../documentContext/navigation";
+import { resolveDefaultDocumentContext } from "../documentContext/parser";
+import { DocumentContextStore } from "../documentContext/store";
+import { MemoryManager } from "../memory/memoryManager";
+import { CodeBlockSelectionStore, createCodeBlockContext } from "../selectionStore";
+import { MyPluginSettings } from "../settings";
 
 interface CommandDefinition {
 	id: string;
@@ -17,15 +19,11 @@ interface CommandDefinition {
 }
 
 export interface CommandHost {
-	app: {
-		workspace: {
-			getActiveViewOfType: (type: typeof MarkdownView) => MarkdownView | null;
-			getLeavesOfType: (type: string) => Array<{ view: unknown }>;
-		};
-	};
+	app: App;
 	manifest: { id: string };
 	settings: MyPluginSettings;
 	selectionStore: CodeBlockSelectionStore;
+	documentContextStore: DocumentContextStore;
 	memoryManager: MemoryManager;
 	activateView: () => Promise<void>;
 	openSampleModal: () => void;
@@ -102,6 +100,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						new Notice("当前没有选中内容，且剪切板为空");
 						return;
 					}
+
 					const context = createCodeBlockContext({
 						sourcePath: "Clipboard",
 						startLine: 0,
@@ -110,23 +109,21 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						content: clipboardText,
 						mode: "live-preview",
 					});
+
 					const isAdded = plugin.selectionStore.toggle(context);
-					if (isAdded) {
-						new Notice(
-							`剪切板内容已加入 AI 上下文（当前共 ${plugin.selectionStore.getSelectedContexts().length} 项）`
-						);
-					} else {
-						new Notice("已从上下文中移除。");
-					}
-				} catch (e) {
-					new Notice("读取剪切板失败：" + e);
+					new Notice(
+						isAdded
+							? `剪切板内容已加入 AI 上下文（当前共 ${plugin.selectionStore.getSelectedContexts().length} 项）`
+							: "已从上下文中移除。"
+					);
+				} catch (error) {
+					new Notice("读取剪切板失败：" + error);
 				}
 				return;
 			}
 
 			const from = editor.getCursor("from");
 			const to = editor.getCursor("to");
-
 			const context = createCodeBlockContext({
 				sourcePath: view.file?.path || "unknown",
 				startLine: from.line,
@@ -137,15 +134,11 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			});
 
 			const isAdded = plugin.selectionStore.toggle(context);
-			if (isAdded) {
-				new Notice(
-					`已加入 AI 上下文队列（当前共 ${plugin.selectionStore.getSelectedContexts().length} 项）`
-				);
-			} else {
-				new Notice(
-					`已从 AI 上下文队列移除（当前共 ${plugin.selectionStore.getSelectedContexts().length} 项）`
-				);
-			}
+			new Notice(
+				isAdded
+					? `已加入 AI 上下文队列（当前共 ${plugin.selectionStore.getSelectedContexts().length} 项）`
+					: `已从 AI 上下文队列移除（当前共 ${plugin.selectionStore.getSelectedContexts().length} 项）`
+			);
 		},
 	});
 
@@ -215,6 +208,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 		hotkeys: [{ modifiers: ["Mod"], key: "'" }],
 		callback: () => {
 			plugin.selectionStore.clear();
+			plugin.documentContextStore.clear();
 
 			plugin.app.workspace.getLeavesOfType("markdown").forEach((leaf) => {
 				const view = leaf.view as MarkdownView;
@@ -225,14 +219,12 @@ export function registerPluginCommands(plugin: CommandHost): void {
 					const cm = (view.editor as any).cm;
 					if (cm) {
 						const forceUpdate = StateEffect.define<null>();
-						cm.dispatch({
-							effects: forceUpdate.of(null),
-						});
+						cm.dispatch({ effects: forceUpdate.of(null) });
 					}
 				}
 			});
 
-			new Notice("✓ 已取消并清空所有选中的代码块！");
+			new Notice("✓ 已取消并清空所有选中的上下文！");
 		},
 	});
 
@@ -240,7 +232,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 		id: "ai-completion",
 		name: "AI Completion (DashScope)",
 		hotkeys: [{ modifiers: ["Mod"], key: "Enter" }],
-		editorCallback: async (editor: Editor) => {
+		editorCallback: async (editor: Editor, view: MarkdownView) => {
 			const cursor = editor.getCursor();
 			const line = editor.getLine(cursor.line);
 			const match = line.match(/\/\/(.*?)\/\/\s*$/);
@@ -250,9 +242,38 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				return;
 			}
 
+			if (!view.file) {
+				new Notice("当前视图没有关联的 Markdown 文件。");
+				return;
+			}
+
 			const question = match[1].trim();
-			const contexts = plugin.selectionStore.getSelectedContexts();
-			const lineWithoutSlashes = line.substring(0, match.index) + match[1];
+			const activeContexts = plugin.selectionStore.getSelectedContexts();
+			const inlineDocumentContexts = await resolveDocumentContextsFromLine(
+				plugin.app,
+				view.file,
+				line,
+				cursor.line,
+				plugin.documentContextStore.getLastConversationSnapshot()
+			);
+			let documentContexts = mergeDocumentContexts(
+				plugin.documentContextStore.getSelectedItems(),
+				inlineDocumentContexts
+			);
+
+			if (documentContexts.length === 0) {
+				const raw = await plugin.app.vault.cachedRead(view.file);
+				documentContexts = [resolveDefaultDocumentContext(view.file, raw, cursor.line)];
+			}
+
+			if (documentContexts.length > 0) {
+				plugin.documentContextStore.setSelectedItems(documentContexts);
+				plugin.documentContextStore.setLastConversationSnapshot(documentContexts);
+				plugin.settings.lastDocumentContextSnapshot = documentContexts.map((item) => ({ ...item }));
+				await plugin.saveSettings();
+			}
+
+			const lineWithoutSlashes = stripDocumentMarkersFromText(line.substring(0, match.index) + match[1]);
 			editor.setLine(cursor.line, lineWithoutSlashes);
 			const newLineLength = lineWithoutSlashes.length;
 
@@ -302,15 +323,17 @@ export function registerPluginCommands(plugin: CommandHost): void {
 
 			await streamDashScope(
 				question,
-				contexts,
+				activeContexts,
+				documentContexts,
 				plugin.settings.dashScopeApiKey,
 				enableThinking,
 				{
 					onReasoning: (chunk) => {
-						if (!enableThinking) return;
+						if (!enableThinking) {
+							return;
+						}
 
 						insertStreamChunk(chunk);
-
 						const lines = chunk.split("\n");
 						if (lines.length > 1) {
 							currentLine += lines.length - 1;
@@ -325,14 +348,12 @@ export function registerPluginCommands(plugin: CommandHost): void {
 
 						if (!isAnswering && enableThinking) {
 							isAnswering = true;
-							const endQuote = "\n```\n\n---\n\n";
-							insertStreamChunk(endQuote);
+							insertStreamChunk("\n```\n\n---\n\n");
 							currentLine += 5;
 							currentCh = 0;
 						}
 
 						insertStreamChunk(chunk);
-
 						const lines = chunk.split("\n");
 						if (lines.length > 1) {
 							currentLine += lines.length - 1;
@@ -347,23 +368,16 @@ export function registerPluginCommands(plugin: CommandHost): void {
 					},
 					onComplete: () => {
 						insertStreamChunk("\n\n---\n");
-
 						currentLine += 3;
 						currentCh = 0;
 						setStreamCursor();
-
-						// Record turn in memory system (fire-and-forget)
 						void plugin.memoryManager.recordTurn(question, accumulatedAnswer);
 					},
 				},
 				plugin.settings.aiBaseUrl,
 				plugin.settings.aiModel,
-				plugin.settings.savedSystemPrompts?.find(
-					(p) => p.id === plugin.settings.activeSystemPromptId
-				)?.content || plugin.settings.systemPromptTemplate,
-				plugin.settings.savedSoulPrompts?.find(
-					(p) => p.id === plugin.settings.activeSoulPromptId
-				)?.content || "",
+				plugin.settings.savedSystemPrompts?.find((prompt) => prompt.id === plugin.settings.activeSystemPromptId)?.content || plugin.settings.systemPromptTemplate,
+				plugin.settings.savedSoulPrompts?.find((prompt) => prompt.id === plugin.settings.activeSoulPromptId)?.content || "",
 				plugin.memoryManager.getConversationHistory(),
 				plugin.memoryManager.buildMemoryContext()
 			);
@@ -384,14 +398,15 @@ export function registerPluginCommands(plugin: CommandHost): void {
 		name: "Open modal (complex)",
 		checkCallback: (checking: boolean) => {
 			const markdownView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-			if (markdownView) {
-				if (!checking) {
-					plugin.openSampleModal();
-				}
-
-				return true;
+			if (!markdownView) {
+				return false;
 			}
-			return false;
+
+			if (!checking) {
+				plugin.openSampleModal();
+			}
+
+			return true;
 		},
 	});
 }
