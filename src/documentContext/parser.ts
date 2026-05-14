@@ -118,7 +118,7 @@ export function findHeadingByPath(nodes: DocumentHeadingNode[], titlePath: strin
 
 export function getChildHeadings(nodes: DocumentHeadingNode[], titlePath: string[]): DocumentHeadingNode[] {
 	if (titlePath.length === 0) {
-		return nodes.filter((node) => node.level === 1);
+		return [...nodes];
 	}
 
 	const parent = findHeadingByPath(nodes, titlePath);
@@ -192,7 +192,7 @@ export function resolveDefaultDocumentContext(
 		return buildDocumentContextFromHeading(file, raw, currentNode);
 	}
 
-	const firstHeading = flattenHeadingTree(roots).find((node) => node.level === 1) ?? flattenHeadingTree(roots)[0];
+	const firstHeading = roots[0] ?? flattenHeadingTree(roots)[0];
 	if (firstHeading) {
 		return buildDocumentContextFromHeading(file, raw, firstHeading);
 	}

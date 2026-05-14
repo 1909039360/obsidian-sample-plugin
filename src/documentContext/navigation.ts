@@ -202,7 +202,7 @@ export async function resolveShortcutContexts(
 	}
 
 	if (shortcut === "next" || shortcut === "pre") {
-		const siblings = flattenHeadingTree(roots).filter((node) => node.level === 1);
+		const siblings = [...roots];
 		const levelOnePath = currentNode.pathTitles.slice(0, 1);
 		const levelOneNode = findHeadingByPath(roots, levelOnePath);
 		if (!levelOneNode) {
