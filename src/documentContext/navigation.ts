@@ -1,5 +1,6 @@
 import { TFile, type App } from "obsidian";
 import {
+	buildDocumentContextFromFile,
 	buildDocumentContextFromHeading,
 	createDocumentContextId,
 	findHeadingByPath,
@@ -75,6 +76,9 @@ export async function buildContextFromMarker(
 	cursorLine: number,
 	lastSnapshot: DocumentContextItem[] = []
 ): Promise<DocumentContextItem | null> {
+	void cursorLine;
+	void lastSnapshot;
+
 	const file = resolveFileByName(app, activeFile, marker.fileName);
 	if (!file) {
 		return null;
@@ -82,8 +86,7 @@ export async function buildContextFromMarker(
 
 	const raw = await app.vault.cachedRead(file);
 	if (marker.titlePath.length === 0) {
-		const preferred = lastSnapshot.find((item) => item.filePath === file.path)?.titlePath ?? [];
-		return resolveDefaultDocumentContext(file, raw, file.path === activeFile.path ? cursorLine : 0, preferred);
+		return buildDocumentContextFromFile(file, raw);
 	}
 
 	const tree = parseMarkdownHeadingTree(raw, file.path);
@@ -140,7 +143,7 @@ export async function buildDocumentContextForHeadingPath(
 ): Promise<DocumentContextItem> {
 	const raw = await app.vault.cachedRead(file);
 	if (titlePath.length === 0) {
-		return resolveDefaultDocumentContext(file, raw, 0);
+		return buildDocumentContextFromFile(file, raw);
 	}
 
 	const tree = parseMarkdownHeadingTree(raw, file.path);

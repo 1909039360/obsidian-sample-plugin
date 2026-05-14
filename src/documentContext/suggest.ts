@@ -1,5 +1,6 @@
 import { Editor, EditorPosition, EditorSuggest, EditorSuggestContext, EditorSuggestTriggerInfo, Notice, TFile, type App } from "obsidian";
 import {
+	buildContextFromMarker,
 	buildDocumentContextForHeadingPath,
 	buildDocumentMarker,
 	getMarkdownFilesInFolder,
@@ -7,7 +8,6 @@ import {
 	resolveHeadingChildren,
 	resolveShortcutContexts,
 } from "./navigation";
-import { resolveDefaultDocumentContext } from "./parser";
 import { DocumentContextStore } from "./store";
 import type { DocumentContextItem, DocumentMarker, DocumentSuggestItem, DocumentSuggestShortcutItem } from "./types";
 
@@ -32,7 +32,7 @@ export class DocumentContextSuggest extends EditorSuggest<DocumentSuggestItem> {
 		this.activeFile = file;
 		const line = editor.getLine(cursor.line);
 		const prefix = line.substring(0, cursor.ch);
-		const match = prefix.match(/(?:^|\s)@([^\s@]*)$/);
+		const match = prefix.match(/(?:^|\s|\])@([^\s@]*)$/);
 		if (!match) {
 			return null;
 		}
@@ -112,16 +112,13 @@ export class DocumentContextSuggest extends EditorSuggest<DocumentSuggestItem> {
 		if (value.kind === "shortcut") {
 			items = await resolveShortcutContexts(this.app, this.activeFile, value.shortcut, this.store.getLastConversationSnapshot());
 		} else if (value.kind === "file") {
-			const raw = await this.app.vault.cachedRead(value.file);
-			const preferred = this.store.getLastConversationSnapshot().find((item) => item.filePath === value.file.path)?.titlePath ?? [];
-			items = [
-				resolveDefaultDocumentContext(
-					value.file,
-					raw,
-					value.file.path === this.activeFile.path ? activeContext.editor.getCursor().line : 0,
-					preferred
-				),
-			];
+			items = [await buildContextFromMarker(this.app, this.activeFile, {
+				raw: `@doc[${value.file.name}]`,
+				fileName: value.file.name,
+				titlePath: [],
+				start: activeContext.start.ch,
+				end: activeContext.end.ch,
+			}, activeContext.editor.getCursor().line) as DocumentContextItem];
 		} else {
 			items = [await buildDocumentContextForHeadingPath(this.app, value.file, value.heading.pathTitles)];
 		}
@@ -153,12 +150,15 @@ export class DocumentContextSuggest extends EditorSuggest<DocumentSuggestItem> {
 		previousMarker: DocumentMarker | null
 	): void {
 		const markerText = items.map((item) => buildDocumentMarker(item)).join(" ");
+		const insertedText = `${markerText} `;
 		if (previousMarker) {
 			editor.replaceRange("", start, end);
-			editor.replaceRange(markerText, { line: start.line, ch: previousMarker.start }, { line: start.line, ch: previousMarker.end });
+			editor.replaceRange(insertedText, { line: start.line, ch: previousMarker.start }, { line: start.line, ch: previousMarker.end });
+			editor.setCursor({ line: start.line, ch: previousMarker.start + insertedText.length });
 			return;
 		}
 
-		editor.replaceRange(markerText, start, end);
+		editor.replaceRange(insertedText, start, end);
+		editor.setCursor({ line: start.line, ch: start.ch + insertedText.length });
 	}
 }
