@@ -22,6 +22,8 @@ const SHORTCUTS: DocumentSuggestShortcutItem[] = [
 export class DocumentContextSuggest extends EditorSuggest<DocumentSuggestItem> {
 	private activeFile: TFile | null = null;
 	private readonly store: DocumentContextStore;
+	private static readonly DOCUMENT_TRIGGER_PATTERN = /(?:^|\s|\]|\/\/)@([^\s@]*)$/;
+	private static readonly INLINE_PROMPT_TRIGGER_PATTERN = /\/\/.*@([^\s@]*)$/;
 
 	constructor(app: App, store: DocumentContextStore) {
 		super(app);
@@ -32,8 +34,13 @@ export class DocumentContextSuggest extends EditorSuggest<DocumentSuggestItem> {
 		this.activeFile = file;
 		const line = editor.getLine(cursor.line);
 		const prefix = line.substring(0, cursor.ch);
-		const match = prefix.match(/(?:^|\s|\])@([^\s@]*)$/);
-		if (!match) {
+		const suffix = line.substring(cursor.ch);
+		const match = prefix.match(DocumentContextSuggest.DOCUMENT_TRIGGER_PATTERN);
+		const inlinePromptMatch = suffix.startsWith("//")
+			? prefix.match(DocumentContextSuggest.INLINE_PROMPT_TRIGGER_PATTERN)
+			: null;
+		const resolvedMatch = match ?? inlinePromptMatch;
+		if (!resolvedMatch) {
 			return null;
 		}
 
@@ -41,7 +48,7 @@ export class DocumentContextSuggest extends EditorSuggest<DocumentSuggestItem> {
 		return {
 			start: { line: cursor.line, ch: startIndex },
 			end: cursor,
-			query: match[1] ?? "",
+			query: resolvedMatch[1] ?? "",
 		};
 	}
 

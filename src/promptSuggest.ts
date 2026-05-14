@@ -15,6 +15,8 @@ const BUILTIN_PROMPTS = [
 
 export class AIPromptSuggest extends EditorSuggest<string> {
 	private readonly getSettings: () => MyPluginSettings;
+	private static readonly DOCUMENT_TRIGGER_PATTERN = /(?:^|\s|\]|\/\/)@([^\s@]*)$/;
+	private static readonly INLINE_PROMPT_DOCUMENT_TRIGGER_PATTERN = /\/\/.*@([^\s@]*)$/;
 
 	constructor(app: App, getSettings: () => MyPluginSettings) {
 		super(app);
@@ -25,6 +27,13 @@ export class AIPromptSuggest extends EditorSuggest<string> {
 		const line = editor.getLine(cursor.line);
 		const prefix = line.substring(0, cursor.ch);
 		const suffix = line.substring(cursor.ch);
+
+		if (
+			prefix.match(AIPromptSuggest.DOCUMENT_TRIGGER_PATTERN) ||
+			(suffix.startsWith('//') && prefix.match(AIPromptSuggest.INLINE_PROMPT_DOCUMENT_TRIGGER_PATTERN))
+		) {
+			return null;
+		}
 
 		// 匹配：游标前是以 // 开始，且中间不包含 /
 		const match = prefix.match(/\/\/([^/]*)$/);
