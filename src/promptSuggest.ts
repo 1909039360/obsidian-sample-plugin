@@ -78,6 +78,7 @@ export class AIPromptSuggest extends EditorSuggest<string> {
 			const { editor, start, end } = this.context;
 			// 用选中的文字替换掉原来的查询输入
 			editor.replaceRange(value, start, end);
+			editor.setCursor({ line: start.line, ch: start.ch + value.length });
 		}
 	}
 }
