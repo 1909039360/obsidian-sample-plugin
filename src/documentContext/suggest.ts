@@ -61,30 +61,33 @@ export class DocumentContextSuggest extends EditorSuggest<DocumentSuggestItem> {
 		const linePrefix = context.editor.getLine(context.start.line).slice(0, context.start.ch);
 		const markers = parseDocumentMarkersFromLine(linePrefix);
 		const lastMarker = markers[markers.length - 1] ?? null;
-
-		const suggestions: DocumentSuggestItem[] = [...SHORTCUTS];
+		let suggestions: DocumentSuggestItem[] = [];
 		if (!lastMarker) {
-			suggestions.push(
-				...getMarkdownFilesInFolder(this.app, this.activeFile).map((file) => ({
+			const files = getMarkdownFilesInFolder(this.app, this.activeFile);
+			const sortedFiles = [...files].sort((left, right) => {
+				return this.store.getFileUsageCount(right.path) - this.store.getFileUsageCount(left.path);
+			});
+
+			suggestions = [
+				...sortedFiles.map((file) => ({
 					kind: "file" as const,
 					file,
 					label: file.name,
 					description: file.path,
-				}))
-			);
+				})),
+				...SHORTCUTS,
+			];
 		} else {
 			const file = getMarkdownFilesInFolder(this.app, this.activeFile).find((item) => item.name === lastMarker.fileName);
 			if (file) {
 				const children = await resolveHeadingChildren(this.app, file, lastMarker.titlePath);
-				suggestions.push(
-					...children.map((heading) => ({
+				suggestions = children.map((heading) => ({
 						kind: "heading" as const,
 						file,
 						heading,
 						label: heading.title,
 						description: `${file.name} · ${heading.pathTitles.join(" > ")}`,
-					}))
-				);
+					}));
 			}
 		}
 

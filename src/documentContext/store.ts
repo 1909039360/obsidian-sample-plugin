@@ -7,11 +7,21 @@ export class DocumentContextStore {
 	private lastConversationSnapshot: DocumentContextItem[];
 	private readonly historyLimit: number;
 	private focusMode: boolean;
+	private fileUsage: Record<string, number>;
+	private readonly onFileUsageChange?: (fileUsage: Record<string, number>) => void;
 
-	constructor(historyLimit = 5, initialSnapshot: DocumentContextItem[] = [], focusMode = true) {
+	constructor(
+		historyLimit = 5,
+		initialSnapshot: DocumentContextItem[] = [],
+		focusMode = true,
+		initialFileUsage: Record<string, number> = {},
+		onFileUsageChange?: (fileUsage: Record<string, number>) => void
+	) {
 		this.historyLimit = historyLimit;
 		this.lastConversationSnapshot = initialSnapshot;
 		this.focusMode = focusMode;
+		this.fileUsage = { ...initialFileUsage };
+		this.onFileUsageChange = onFileUsageChange;
 	}
 
 	subscribe(listener: () => void): () => void {
@@ -50,6 +60,19 @@ export class DocumentContextStore {
 		return keptItem ? [keptItem] : [];
 	}
 
+	private incrementFileUsage(items: DocumentContextItem[]): void {
+		const filePaths = Array.from(new Set(items.map((item) => item.filePath).filter((filePath) => Boolean(filePath))));
+		if (filePaths.length === 0) {
+			return;
+		}
+
+		for (const filePath of filePaths) {
+			this.fileUsage[filePath] = (this.fileUsage[filePath] ?? 0) + 1;
+		}
+
+		this.onFileUsageChange?.(this.getFileUsageSnapshot());
+	}
+
 	setFocusMode(enabled: boolean): void {
 		if (this.focusMode === enabled) {
 			return;
@@ -81,6 +104,7 @@ export class DocumentContextStore {
 
 		this.historyItems = this.historyItems.filter((context) => context.id !== item.id);
 		this.selectedItems.set(item.id, item);
+		this.incrementFileUsage([item]);
 		this.notify();
 	}
 
@@ -106,6 +130,7 @@ export class DocumentContextStore {
 			this.selectedItems.set(item.id, item);
 		}
 
+		this.incrementFileUsage(nextItems);
 		this.notify();
 	}
 
@@ -143,5 +168,13 @@ export class DocumentContextStore {
 
 	getLastConversationSnapshot(): DocumentContextItem[] {
 		return this.lastConversationSnapshot.map((item) => ({ ...item }));
+	}
+
+	getFileUsageCount(filePath: string): number {
+		return this.fileUsage[filePath] ?? 0;
+	}
+
+	getFileUsageSnapshot(): Record<string, number> {
+		return { ...this.fileUsage };
 	}
 }

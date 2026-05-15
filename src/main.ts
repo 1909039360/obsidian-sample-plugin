@@ -23,7 +23,12 @@ export default class MyPlugin extends Plugin {
 		this.documentContextStore = new DocumentContextStore(
 			this.settings.documentContextHistoryLimit,
 			this.settings.lastDocumentContextSnapshot,
-			this.settings.documentContextFocusMode
+			this.settings.documentContextFocusMode,
+			this.settings.documentContextFileUsage,
+			(fileUsage) => {
+				this.settings.documentContextFileUsage = fileUsage;
+				void this.saveSettings();
+			}
 		);
 		this.memoryManager = new MemoryManager(this.app, () => this.settings);
 		await this.memoryManager.init();
@@ -140,6 +145,10 @@ export default class MyPlugin extends Plugin {
 
 		if (!Array.isArray(this.settings.lastDocumentContextSnapshot)) {
 			this.settings.lastDocumentContextSnapshot = [];
+		}
+
+		if (!this.settings.documentContextFileUsage || typeof this.settings.documentContextFileUsage !== 'object' || Array.isArray(this.settings.documentContextFileUsage)) {
+			this.settings.documentContextFileUsage = {};
 		}
 
 		if (typeof this.settings.documentContextFocusMode !== 'boolean') {

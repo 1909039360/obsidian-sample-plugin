@@ -289,6 +289,72 @@ If your plugin does not need CSS, delete this file.
 
 /* ── AI task view 样式 ────────────────────────────────────── */
 
+.ai-task-topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 14px;
+	flex-wrap: wrap;
+}
+
+.ai-task-view-title {
+	margin: 0;
+}
+
+.ai-task-tabs {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	background: var(--background-secondary);
+}
+
+.ai-task-tab {
+	padding: 6px 14px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--text-muted);
+	font-size: 0.9em;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.ai-task-tab:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.ai-task-tab.is-active {
+	background: var(--background-primary);
+	color: var(--text-normal);
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.ai-task-page {
+	display: none;
+	animation: ai-task-page-fade 140ms ease;
+}
+
+.ai-task-page.is-active {
+	display: block;
+}
+
+@keyframes ai-task-page-fade {
+	from {
+		opacity: 0;
+		transform: translateY(3px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 .ai-task-toolbar {
 	display: flex;
 	gap: 8px;

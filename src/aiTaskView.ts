@@ -18,10 +18,14 @@ export class AITaskView extends ItemView {
 	unsubscribeDocumentStore!: () => void;
 	unsubscribeMemory!: () => void;
 
-	contextContainer!: HTMLElement;
+	contextPageContainer!: HTMLElement;
+	promptPageContainer!: HTMLElement;
+	contextTabBtn!: HTMLButtonElement;
+	promptTabBtn!: HTMLButtonElement;
 	memoryToggleBtn!: HTMLElement;
 	thinkingToggleBtn!: HTMLElement;
 	documentFocusToggleBtn!: HTMLElement;
+	activePage: "context" | "prompt" = "context";
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -58,9 +62,98 @@ export class AITaskView extends ItemView {
 
 		container.empty();
 		container.addClass("ai-task-view");
-		container.createEl("h3", { text: "AI Context Manager" });
+		const topBar = container.createEl("div", { cls: "ai-task-topbar" });
+		topBar.createEl("h3", { text: "AI Context Manager", cls: "ai-task-view-title" });
+		const tabs = topBar.createEl("div", { cls: "ai-task-tabs" });
+		this.contextTabBtn = tabs.createEl("button", { text: "Context", cls: "ai-task-tab" });
+		this.promptTabBtn = tabs.createEl("button", { text: "Prompt", cls: "ai-task-tab" });
+		this.contextTabBtn.onclick = () => this.setActivePage("context");
+		this.promptTabBtn.onclick = () => this.setActivePage("prompt");
 
-		const toolbar = container.createEl("div", { cls: "ai-task-toolbar" });
+		this.contextPageContainer = container.createEl("div", { cls: "ai-task-page ai-task-page--context" });
+		this.promptPageContainer = container.createEl("div", { cls: "ai-task-page ai-task-page--prompt" });
+		this.unsubscribeStore = this.store.subscribe(() => this.renderContexts());
+		this.unsubscribeDocumentStore = this.documentContextStore.subscribe(() => this.renderContexts());
+		this.unsubscribeMemory = this.plugin.memoryManager.subscribe(() => this.updateMemoryToggleBtn());
+
+		this.renderContexts();
+		this.updatePageTabs();
+		this.updatePageVisibility();
+	}
+
+	async onClose() {
+		if (this.unsubscribeStore) {
+			this.unsubscribeStore();
+		}
+		if (this.unsubscribeDocumentStore) {
+			this.unsubscribeDocumentStore();
+		}
+		if (this.unsubscribeMemory) {
+			this.unsubscribeMemory();
+		}
+	}
+
+	private updateMemoryToggleBtn() {
+		if (!this.memoryToggleBtn) {
+			return;
+		}
+
+		const enabled = this.plugin.memoryManager.isActive();
+		this.memoryToggleBtn.setText(enabled ? "Memory: ON" : "Memory: OFF");
+		this.memoryToggleBtn.toggleClass("ai-memory-btn--off", !enabled);
+		this.memoryToggleBtn.toggleClass("ai-memory-btn--on", enabled);
+	}
+
+	updateThinkingToggleBtn() {
+		if (!this.thinkingToggleBtn) {
+			return;
+		}
+
+		const enabled = this.plugin.settings.enableThinking;
+		this.thinkingToggleBtn.setText(enabled ? "Thinking: ON" : "Thinking: OFF");
+		this.thinkingToggleBtn.toggleClass("ai-thinking-btn--off", !enabled);
+		this.thinkingToggleBtn.toggleClass("ai-thinking-btn--on", enabled);
+	}
+
+	private setActivePage(page: "context" | "prompt") {
+		if (this.activePage === page) {
+			return;
+		}
+
+		this.activePage = page;
+		this.updatePageTabs();
+		this.updatePageVisibility();
+	}
+
+	private updatePageTabs() {
+		if (!this.contextTabBtn || !this.promptTabBtn) {
+			return;
+		}
+
+		this.contextTabBtn.toggleClass("is-active", this.activePage === "context");
+		this.promptTabBtn.toggleClass("is-active", this.activePage === "prompt");
+	}
+
+	private updatePageVisibility() {
+		if (!this.contextPageContainer || !this.promptPageContainer) {
+			return;
+		}
+
+		this.contextPageContainer.toggleClass("is-active", this.activePage === "context");
+		this.promptPageContainer.toggleClass("is-active", this.activePage === "prompt");
+	}
+
+	renderContexts() {
+		this.contextPageContainer.empty();
+		this.promptPageContainer.empty();
+		this.renderContextPage();
+		this.renderPromptPage();
+		this.updatePageTabs();
+		this.updatePageVisibility();
+	}
+
+	private renderContextPage() {
+		const toolbar = this.contextPageContainer.createEl("div", { cls: "ai-task-toolbar" });
 		const clearBtn = toolbar.createEl("button", { text: "Clear All Contexts", cls: "ai-clear-btn" });
 		clearBtn.onclick = () => {
 			this.store.clear();
@@ -107,68 +200,26 @@ export class AITaskView extends ItemView {
 			new Notice(this.plugin.settings.enableThinking ? "✓ Thinking 模式已开启" : "✗ Thinking 模式已关闭");
 		};
 
-		this.contextContainer = container.createEl("div", { cls: "ai-context-container" });
-		this.unsubscribeStore = this.store.subscribe(() => this.renderContexts());
-		this.unsubscribeDocumentStore = this.documentContextStore.subscribe(() => this.renderContexts());
-		this.unsubscribeMemory = this.plugin.memoryManager.subscribe(() => this.updateMemoryToggleBtn());
-
-		this.renderContexts();
+		this.renderActiveContexts(this.contextPageContainer);
+		this.contextPageContainer.createEl("hr", { cls: "ai-context-divider" });
+		this.renderDocumentContexts(this.contextPageContainer);
 	}
 
-	async onClose() {
-		if (this.unsubscribeStore) {
-			this.unsubscribeStore();
-		}
-		if (this.unsubscribeDocumentStore) {
-			this.unsubscribeDocumentStore();
-		}
-		if (this.unsubscribeMemory) {
-			this.unsubscribeMemory();
-		}
+	private renderPromptPage() {
+		this.renderPromptConfig(this.promptPageContainer, "System Prompt", "savedSystemPrompts", "activeSystemPromptId");
+		this.promptPageContainer.createEl("hr", { cls: "ai-prompt-divider" });
+		this.renderPromptConfig(this.promptPageContainer, "Soul Prompt (回答个性)", "savedSoulPrompts", "activeSoulPromptId");
 	}
 
-	private updateMemoryToggleBtn() {
-		if (!this.memoryToggleBtn) {
-			return;
-		}
-
-		const enabled = this.plugin.memoryManager.isActive();
-		this.memoryToggleBtn.setText(enabled ? "Memory: ON" : "Memory: OFF");
-		this.memoryToggleBtn.toggleClass("ai-memory-btn--off", !enabled);
-		this.memoryToggleBtn.toggleClass("ai-memory-btn--on", enabled);
-	}
-
-	updateThinkingToggleBtn() {
-		if (!this.thinkingToggleBtn) {
-			return;
-		}
-
-		const enabled = this.plugin.settings.enableThinking;
-		this.thinkingToggleBtn.setText(enabled ? "Thinking: ON" : "Thinking: OFF");
-		this.thinkingToggleBtn.toggleClass("ai-thinking-btn--off", !enabled);
-		this.thinkingToggleBtn.toggleClass("ai-thinking-btn--on", enabled);
-	}
-
-	renderContexts() {
-		this.contextContainer.empty();
-		this.renderActiveContexts();
-		this.contextContainer.createEl("hr", { cls: "ai-context-divider" });
-		this.renderDocumentContexts();
-		this.contextContainer.createEl("hr", { cls: "ai-prompt-divider" });
-		this.renderPromptConfig("System Prompt", "savedSystemPrompts", "activeSystemPromptId");
-		this.contextContainer.createEl("hr", { cls: "ai-prompt-divider" });
-		this.renderPromptConfig("Soul Prompt (回答个性)", "savedSoulPrompts", "activeSoulPromptId");
-	}
-
-	private renderActiveContexts() {
+	private renderActiveContexts(container: HTMLElement) {
 		const contexts = this.store.getSelectedContexts();
-		this.contextContainer.createEl("h4", { text: "Active Contexts" });
+		container.createEl("h4", { text: "Active Contexts" });
 
 		if (contexts.length === 0) {
-			this.contextContainer.createEl("p", { text: "No contexts selected.", cls: "text-muted" });
+			container.createEl("p", { text: "No contexts selected.", cls: "text-muted" });
 		} else {
 			contexts.forEach((ctx, idx) => {
-				const itemDiv = this.contextContainer.createEl("div", { cls: "ai-context-item" });
+				const itemDiv = container.createEl("div", { cls: "ai-context-item" });
 				const info = itemDiv.createEl("div");
 				info.createEl("strong", { text: `[${idx + 1}] ${ctx.language}` });
 				info.createEl("br");
@@ -189,10 +240,10 @@ export class AITaskView extends ItemView {
 
 		const history = this.store.getHistory();
 		if (history.length > 0) {
-			this.contextContainer.createEl("hr", { cls: "ai-context-divider" });
-			this.contextContainer.createEl("h4", { text: "History (Last 5)" });
+			container.createEl("hr", { cls: "ai-context-divider" });
+			container.createEl("h4", { text: "History (Last 5)" });
 			history.forEach((ctx) => {
-				const itemDiv = this.contextContainer.createEl("div", { cls: "ai-context-history-item" });
+				const itemDiv = container.createEl("div", { cls: "ai-context-history-item" });
 				const info = itemDiv.createEl("div");
 				const previewText = ctx.content.length > 30 ? `${ctx.content.replace(/\s+/g, " ").substring(0, 30)}...` : ctx.content;
 				info.createEl("small", { text: ctx.sourcePath !== "Clipboard" ? `${ctx.sourcePath} (${ctx.language})` : "Clipboard" });
@@ -206,9 +257,9 @@ export class AITaskView extends ItemView {
 		}
 	}
 
-	private renderDocumentContexts() {
+	private renderDocumentContexts(container: HTMLElement) {
 		const contexts = this.documentContextStore.getSelectedItems();
-		const header = this.contextContainer.createEl("div", { cls: "ai-document-context-header" });
+		const header = container.createEl("div", { cls: "ai-document-context-header" });
 		header.createEl("h4", { text: "Document Contexts", cls: "ai-document-context-title" });
 		this.documentFocusToggleBtn = header.createEl("button", { cls: "ai-document-focus-btn" });
 		this.updateDocumentFocusToggleBtn();
@@ -222,16 +273,16 @@ export class AITaskView extends ItemView {
 		};
 
 		if (contexts.length === 0) {
-			this.contextContainer.createEl("p", { text: "No document contexts selected.", cls: "text-muted" });
+			container.createEl("p", { text: "No document contexts selected.", cls: "text-muted" });
 		} else {
-			contexts.forEach((ctx) => this.renderDocumentContextItem(ctx, false));
+			contexts.forEach((ctx) => this.renderDocumentContextItem(container, ctx, false));
 		}
 
 		const history = this.documentContextStore.getHistory();
 		if (history.length > 0) {
-			this.contextContainer.createEl("hr", { cls: "ai-context-divider" });
-			this.contextContainer.createEl("h4", { text: "Document History (Last 5)" });
-			history.forEach((ctx) => this.renderDocumentContextItem(ctx, true));
+			container.createEl("hr", { cls: "ai-context-divider" });
+			container.createEl("h4", { text: "Document History (Last 5)" });
+			history.forEach((ctx) => this.renderDocumentContextItem(container, ctx, true));
 		}
 	}
 
@@ -246,8 +297,8 @@ export class AITaskView extends ItemView {
 		this.documentFocusToggleBtn.toggleClass("ai-document-focus-btn--off", !enabled);
 	}
 
-	private renderDocumentContextItem(ctx: DocumentContextItem, isHistory: boolean) {
-		const itemDiv = this.contextContainer.createEl("div", {
+	private renderDocumentContextItem(container: HTMLElement, ctx: DocumentContextItem, isHistory: boolean) {
+		const itemDiv = container.createEl("div", {
 			cls: isHistory ? "ai-context-history-item ai-document-context-item" : "ai-context-item ai-document-context-item",
 		});
 		const info = itemDiv.createEl("div");
@@ -270,6 +321,7 @@ export class AITaskView extends ItemView {
 	}
 
 	private renderPromptConfig(
+		container: HTMLElement,
 		title: string,
 		listKey: "savedSystemPrompts" | "savedSoulPrompts",
 		activeKey: "activeSystemPromptId" | "activeSoulPromptId"
@@ -277,7 +329,7 @@ export class AITaskView extends ItemView {
 		const settings = this.settings();
 		const list = settings[listKey];
 
-		const headerDiv = this.contextContainer.createEl("div", { cls: "ai-prompt-header" });
+		const headerDiv = container.createEl("div", { cls: "ai-prompt-header" });
 		headerDiv.createEl("h4", { text: title, cls: "ai-prompt-title" });
 
 		const newBtn = headerDiv.createEl("button", { text: "+ New", cls: "ai-prompt-new-btn" });
@@ -290,11 +342,11 @@ export class AITaskView extends ItemView {
 		};
 
 		if (list.length === 0) {
-			this.contextContainer.createEl("p", { text: "未配置任何提示词。", cls: "text-muted" });
+			container.createEl("p", { text: "未配置任何提示词。", cls: "text-muted" });
 			return;
 		}
 
-		const selectDiv = this.contextContainer.createEl("div", { cls: "ai-prompt-select-row" });
+		const selectDiv = container.createEl("div", { cls: "ai-prompt-select-row" });
 		const select = selectDiv.createEl("select", { cls: "dropdown ai-prompt-select" });
 
 		if (activeKey === "activeSoulPromptId") {
@@ -328,7 +380,7 @@ export class AITaskView extends ItemView {
 			this.renderContexts();
 		};
 
-		const nameInput = this.contextContainer.createEl("input", { type: "text" });
+		const nameInput = container.createEl("input", { type: "text" });
 		nameInput.addClass("ai-prompt-name-input");
 		nameInput.value = activePrompt.name;
 		nameInput.placeholder = "Prompt Name";
@@ -338,7 +390,7 @@ export class AITaskView extends ItemView {
 			this.renderContexts();
 		};
 
-		const textInput = this.contextContainer.createEl("textarea");
+		const textInput = container.createEl("textarea");
 		textInput.addClass("ai-prompt-content-input");
 		textInput.value = activePrompt.content;
 		textInput.placeholder = title === "System Prompt" ? "你是一个... {{DOCUMENT_CONTEXT}}" : "用鲁迅的语气回答...";

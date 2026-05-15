@@ -36,6 +36,7 @@ export interface MyPluginSettings {
 	documentContextHistoryLimit: number;
 	documentContextFocusMode: boolean;
 	lastDocumentContextSnapshot: DocumentContextItem[];
+	documentContextFileUsage: Record<string, number>;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -70,6 +71,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	documentContextHistoryLimit: 5,
 	documentContextFocusMode: true,
 	lastDocumentContextSnapshot: [],
+	documentContextFileUsage: {},
 }
 
 export class SampleSettingTab extends PluginSettingTab {
