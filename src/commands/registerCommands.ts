@@ -273,9 +273,10 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				await plugin.saveSettings();
 			}
 
-			const lineWithoutSlashes = stripDocumentMarkersFromText(line.substring(0, match.index) + match[1]);
-			editor.setLine(cursor.line, lineWithoutSlashes);
-			const newLineLength = lineWithoutSlashes.length;
+			const normalizedQuestion = stripDocumentMarkersFromText(line.substring(0, match.index) + match[1]);
+			const headingLine = `## ${normalizedQuestion}`;
+			editor.setLine(cursor.line, headingLine);
+			const newLineLength = headingLine.length;
 
 			const enableThinking = plugin.settings.enableThinking;
 			if (enableThinking) {

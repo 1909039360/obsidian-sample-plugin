@@ -6,10 +6,12 @@ export class DocumentContextStore {
 	private historyItems: DocumentContextItem[] = [];
 	private lastConversationSnapshot: DocumentContextItem[];
 	private readonly historyLimit: number;
+	private focusMode: boolean;
 
-	constructor(historyLimit = 5, initialSnapshot: DocumentContextItem[] = []) {
+	constructor(historyLimit = 5, initialSnapshot: DocumentContextItem[] = [], focusMode = true) {
 		this.historyLimit = historyLimit;
 		this.lastConversationSnapshot = initialSnapshot;
+		this.focusMode = focusMode;
 	}
 
 	subscribe(listener: () => void): () => void {
@@ -34,9 +36,44 @@ export class DocumentContextStore {
 		}
 	}
 
+	private normalizeFocusedItems(items: DocumentContextItem[]): DocumentContextItem[] {
+		if (!this.focusMode || items.length <= 1) {
+			return items;
+		}
+
+		const sortedItems = [...items].sort((left, right) => left.selectedAt - right.selectedAt);
+		const keptItem = sortedItems[sortedItems.length - 1];
+		for (const item of sortedItems.slice(0, -1)) {
+			this.addToHistory(item);
+		}
+
+		return keptItem ? [keptItem] : [];
+	}
+
+	setFocusMode(enabled: boolean): void {
+		if (this.focusMode === enabled) {
+			return;
+		}
+
+		this.focusMode = enabled;
+		if (enabled) {
+			const focusedItems = this.normalizeFocusedItems(Array.from(this.selectedItems.values()));
+			this.selectedItems.clear();
+			for (const item of focusedItems) {
+				this.selectedItems.set(item.id, item);
+			}
+		}
+
+		this.notify();
+	}
+
+	isFocusMode(): boolean {
+		return this.focusMode;
+	}
+
 	select(item: DocumentContextItem): void {
 		for (const context of this.selectedItems.values()) {
-			if (context.filePath === item.filePath && context.id !== item.id) {
+			if ((this.focusMode || context.filePath === item.filePath) && context.id !== item.id) {
 				this.addToHistory(context);
 				this.selectedItems.delete(context.id);
 			}
@@ -62,8 +99,9 @@ export class DocumentContextStore {
 			this.addToHistory(context);
 		}
 
+		const nextItems = this.normalizeFocusedItems(items);
 		this.selectedItems.clear();
-		for (const item of items) {
+		for (const item of nextItems) {
 			this.historyItems = this.historyItems.filter((context) => context.id !== item.id);
 			this.selectedItems.set(item.id, item);
 		}

@@ -341,6 +341,39 @@ If your plugin does not need CSS, delete this file.
 	border-color: var(--background-modifier-border);
 }
 
+.ai-document-context-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.ai-document-context-title {
+	margin: 0;
+}
+
+.ai-document-focus-btn {
+	font-size: 0.8em;
+	padding: 2px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease;
+}
+
+.ai-document-focus-btn--on {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.ai-document-focus-btn--off {
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	border-color: var(--background-modifier-border);
+}
+
 .ai-context-item {
 	display: flex;
 	justify-content: space-between;

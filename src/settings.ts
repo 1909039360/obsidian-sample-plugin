@@ -34,6 +34,7 @@ export interface MyPluginSettings {
 	maxTurnsBeforeCompression: number;
 	recentTurnsToKeep: number;
 	documentContextHistoryLimit: number;
+	documentContextFocusMode: boolean;
 	lastDocumentContextSnapshot: DocumentContextItem[];
 }
 
@@ -67,6 +68,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	maxTurnsBeforeCompression: 10,
 	recentTurnsToKeep: 4,
 	documentContextHistoryLimit: 5,
+	documentContextFocusMode: true,
 	lastDocumentContextSnapshot: [],
 }
 

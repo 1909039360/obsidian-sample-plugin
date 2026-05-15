@@ -117,7 +117,8 @@ export class DocumentContextSuggest extends EditorSuggest<DocumentSuggestItem> {
 		let items: DocumentContextItem[] = [];
 
 		if (value.kind === "shortcut") {
-			items = await resolveShortcutContexts(this.app, this.activeFile, value.shortcut, this.store.getLastConversationSnapshot());
+			const shortcutBaseItems = await this.resolveShortcutBaseItems(previousMarker, activeContext.editor.getCursor().line);
+			items = await resolveShortcutContexts(this.app, this.activeFile, value.shortcut, shortcutBaseItems);
 		} else if (value.kind === "file") {
 			items = [await buildContextFromMarker(this.app, this.activeFile, {
 				raw: `@doc[${value.file.name}]`,
@@ -145,8 +146,32 @@ export class DocumentContextSuggest extends EditorSuggest<DocumentSuggestItem> {
 			this.store.select(firstItem);
 		}
 
+		this.store.setLastConversationSnapshot(items);
+
 		this.replaceMarkersInEditor(activeContext.editor, activeContext.start, activeContext.end, items, previousMarker);
 		new Notice(`已选择 ${items.length} 条文档上下文`);
+	}
+
+	private async resolveShortcutBaseItems(previousMarker: DocumentMarker | null, cursorLine: number): Promise<DocumentContextItem[]> {
+		if (previousMarker && this.activeFile) {
+			const markerItem = await buildContextFromMarker(
+				this.app,
+				this.activeFile,
+				previousMarker,
+				cursorLine,
+				this.store.getLastConversationSnapshot()
+			);
+			if (markerItem) {
+				return [markerItem];
+			}
+		}
+
+		const selectedItems = this.store.getSelectedItems();
+		if (selectedItems.length > 0) {
+			return selectedItems;
+		}
+
+		return this.store.getLastConversationSnapshot();
 	}
 
 	private replaceMarkersInEditor(

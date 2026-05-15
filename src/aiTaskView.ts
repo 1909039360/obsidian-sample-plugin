@@ -21,6 +21,7 @@ export class AITaskView extends ItemView {
 	contextContainer!: HTMLElement;
 	memoryToggleBtn!: HTMLElement;
 	thinkingToggleBtn!: HTMLElement;
+	documentFocusToggleBtn!: HTMLElement;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -207,7 +208,18 @@ export class AITaskView extends ItemView {
 
 	private renderDocumentContexts() {
 		const contexts = this.documentContextStore.getSelectedItems();
-		this.contextContainer.createEl("h4", { text: "Document Contexts" });
+		const header = this.contextContainer.createEl("div", { cls: "ai-document-context-header" });
+		header.createEl("h4", { text: "Document Contexts", cls: "ai-document-context-title" });
+		this.documentFocusToggleBtn = header.createEl("button", { cls: "ai-document-focus-btn" });
+		this.updateDocumentFocusToggleBtn();
+		this.documentFocusToggleBtn.onclick = async () => {
+			const enabled = !this.documentContextStore.isFocusMode();
+			this.documentContextStore.setFocusMode(enabled);
+			this.plugin.settings.documentContextFocusMode = enabled;
+			await this.plugin.saveSettings();
+			this.updateDocumentFocusToggleBtn();
+			new Notice(enabled ? "✓ 关注模式已开启" : "✗ 关注模式已关闭");
+		};
 
 		if (contexts.length === 0) {
 			this.contextContainer.createEl("p", { text: "No document contexts selected.", cls: "text-muted" });
@@ -221,6 +233,17 @@ export class AITaskView extends ItemView {
 			this.contextContainer.createEl("h4", { text: "Document History (Last 5)" });
 			history.forEach((ctx) => this.renderDocumentContextItem(ctx, true));
 		}
+	}
+
+	private updateDocumentFocusToggleBtn() {
+		if (!this.documentFocusToggleBtn) {
+			return;
+		}
+
+		const enabled = this.documentContextStore.isFocusMode();
+		this.documentFocusToggleBtn.setText(enabled ? "关注模式: ON" : "关注模式: OFF");
+		this.documentFocusToggleBtn.toggleClass("ai-document-focus-btn--on", enabled);
+		this.documentFocusToggleBtn.toggleClass("ai-document-focus-btn--off", !enabled);
 	}
 
 	private renderDocumentContextItem(ctx: DocumentContextItem, isHistory: boolean) {

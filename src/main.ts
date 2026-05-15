@@ -22,7 +22,8 @@ export default class MyPlugin extends Plugin {
 		await this.loadSettings();
 		this.documentContextStore = new DocumentContextStore(
 			this.settings.documentContextHistoryLimit,
-			this.settings.lastDocumentContextSnapshot
+			this.settings.lastDocumentContextSnapshot,
+			this.settings.documentContextFocusMode
 		);
 		this.memoryManager = new MemoryManager(this.app, () => this.settings);
 		await this.memoryManager.init();
@@ -139,6 +140,10 @@ export default class MyPlugin extends Plugin {
 
 		if (!Array.isArray(this.settings.lastDocumentContextSnapshot)) {
 			this.settings.lastDocumentContextSnapshot = [];
+		}
+
+		if (typeof this.settings.documentContextFocusMode !== 'boolean') {
+			this.settings.documentContextFocusMode = true;
 		}
 	}
 
