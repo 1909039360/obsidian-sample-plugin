@@ -1,4 +1,4 @@
-import {App, Modal, Notice, Plugin, WorkspaceLeaf} from 'obsidian';
+import {App, MarkdownView, Modal, Notice, Plugin, WorkspaceLeaf} from 'obsidian';
 import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
 import {registerCodeBlockCollapser} from "./codeBlockCollapser";
 import {createEditorCodeBlockCollapserExtension} from "./editorCodeBlockCollapser";
@@ -91,6 +91,27 @@ export default class MyPlugin extends Plugin {
 							this.app.commands.executeCommandById(this.manifest.id + ':clear-selected-code-blocks');
 						});
 				});
+
+				// 复制当前文档所有标题
+				const mdView = view instanceof MarkdownView ? view : null;
+				if (mdView?.file) {
+					const currentFile = mdView.file;
+					menu.addItem((item) => {
+						item
+							.setTitle('Copy all headings')
+							.setIcon('list')
+							.onClick(async () => {
+								const content = await this.app.vault.cachedRead(currentFile);
+								const headings = (content.match(/^#{1,6} .+/gm) ?? []).join('\n');
+								if (!headings) {
+									new Notice('当前文档没有标题');
+									return;
+								}
+								await navigator.clipboard.writeText(headings);
+								new Notice(`已复制 ${headings.split('\n').length} 个标题`);
+							});
+					});
+				}
 			})
 		);
 
