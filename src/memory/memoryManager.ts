@@ -127,4 +127,33 @@ export class MemoryManager {
 	isEnabled(): boolean {
 		return this.getSettings().memoryEnabled;
 	}
+
+	/**
+	 * Append a question/answer pair to memory/history.md.
+	 * Always writes regardless of memoryEnabled setting.
+	 */
+	async appendToHistory(question: string, answer: string): Promise<void> {
+		const settings = this.getSettings();
+		const dir = settings.memoryDirectory || 'memory';
+		const filePath = `${dir}/history.md`;
+
+		const now = new Date();
+		const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+		const entry = `## ${timestamp}\n\n**Q:** ${question}\n\n**A:**\n\n${answer}\n\n---\n\n`;
+
+		try {
+			if (!(await this.app.vault.adapter.exists(dir))) {
+				await this.app.vault.adapter.mkdir(dir);
+			}
+
+			if (!(await this.app.vault.adapter.exists(filePath))) {
+				await this.app.vault.adapter.write(filePath, `# AI 问答历史\n\n${entry}`);
+			} else {
+				const existing = await this.app.vault.adapter.read(filePath);
+				await this.app.vault.adapter.write(filePath, existing + entry);
+			}
+		} catch (error) {
+			console.error('appendToHistory failed', error);
+		}
+	}
 }
