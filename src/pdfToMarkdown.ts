@@ -192,12 +192,11 @@ allResults.push(res);
 }
 const totalPages = allResults.length;
 
-let pageNum = 0;
-for (const res of allResults) {
-const mdPath = totalPages === 1
-? joinVaultPath(dirPath, `${baseName}.md`)
-: joinVaultPath(dirPath, `${baseName}_${pageNum}.md`);
+// Collect and download all images, then merge all markdown into one file
+const mdParts: string[] = [];
+let imgCounter = 0;
 
+for (const res of allResults) {
 const images = res.markdown.images ?? {};
 for (const [imgRelPath, imgUrl] of Object.entries(images)) {
 const imgVaultPath = joinVaultPath(dirPath, imgRelPath);
@@ -216,7 +215,7 @@ if (Object.keys(outputImages).length > 0) {
 const outputImgDir = joinVaultPath(dirPath, `${baseName}_output_images`);
 await ensureDir(plugin, outputImgDir);
 for (const [imgName, imgUrl] of Object.entries(outputImages)) {
-const imgVaultPath = joinVaultPath(outputImgDir, `${imgName}_${pageNum}.jpg`);
+const imgVaultPath = joinVaultPath(outputImgDir, `${imgName}_${imgCounter}.jpg`);
 const imgBytes = await downloadBinary(imgUrl);
 if (imgBytes) {
 await plugin.app.vault.adapter.writeBinary(imgVaultPath, imgBytes);
@@ -224,14 +223,17 @@ await plugin.app.vault.adapter.writeBinary(imgVaultPath, imgBytes);
 }
 }
 
-const mdContent = res.markdown.text;
-if (await plugin.app.vault.adapter.exists(mdPath)) {
-await plugin.app.vault.adapter.write(mdPath, mdContent);
-} else {
-await plugin.app.vault.create(mdPath, mdContent);
+mdParts.push(res.markdown.text);
+imgCounter++;
 }
 
-pageNum++;
+// Always write a single merged markdown file
+const mdPath = joinVaultPath(dirPath, `${baseName}.md`);
+const mergedContent = mdParts.join('\n\n');
+if (await plugin.app.vault.adapter.exists(mdPath)) {
+await plugin.app.vault.adapter.write(mdPath, mergedContent);
+} else {
+await plugin.app.vault.create(mdPath, mergedContent);
 }
 
 return totalPages;
