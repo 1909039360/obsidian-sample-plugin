@@ -32,6 +32,7 @@ export interface MyPluginSettings {
 
 	// Memory system
 	memoryEnabled: boolean;
+	memoryActive: boolean;
 	memoryDirectory: string;
 	maxTokensBeforeCompression: number;
 	maxTurnsBeforeCompression: number;
@@ -70,6 +71,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 
 	// Memory system
 	memoryEnabled: true,
+	memoryActive: true,
 	memoryDirectory: 'memory',
 	maxTokensBeforeCompression: 100000,
 	maxTurnsBeforeCompression: 10,

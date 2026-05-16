@@ -45,8 +45,10 @@ export function registerPluginCommands(plugin: CommandHost): void {
 		id: "toggle-memory",
 		name: "Toggle memory (on/off)",
 		hotkeys: [{ modifiers: ["Mod"], key: "m" }],
-		callback: () => {
+		callback: async () => {
 			const isOn = plugin.memoryManager.toggle();
+			plugin.settings.memoryActive = isOn;
+			await plugin.saveSettings();
 			new Notice(isOn ? "✓ 记忆已开启" : "✗ 记忆已关闭");
 		},
 	});

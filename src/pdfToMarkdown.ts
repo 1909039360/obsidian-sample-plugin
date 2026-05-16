@@ -169,11 +169,106 @@ return null;
 }
 }
 
+interface HeadingEntry {
+lineIndex: number;
+level: number;
+text: string;
+}
+
+interface HeadingCorrection {
+index: number;
+level: number;
+}
+
+const MAX_HEADINGS_FOR_AI = 300;
+
+/**
+ * Use AI to fix heading hierarchy in a converted markdown document.
+ * Silently skips if API key is missing or no headings found.
+ */
+async function fixHeadingLevels(
+plugin: MyPlugin,
+mdContent: string,
+mdPath: string
+): Promise<void> {
+const settings = plugin.settings;
+if (!settings.dashScopeApiKey) return;
+
+const lines = mdContent.split('\n');
+const headings: HeadingEntry[] = [];
+
+for (let i = 0; i < lines.length; i++) {
+const m = lines[i]?.match(/^(#{1,6})\s+(.+)$/);
+if (m?.[1] && m?.[2]) {
+headings.push({ lineIndex: i, level: m[1].length, text: m[2].trim() });
+}
+}
+
+if (headings.length === 0 || headings.length > MAX_HEADINGS_FOR_AI) return;
+
+const headingList = headings.map((h, i) => `${i + 1}. ${h.text}`).join('\n');
+
+const systemPrompt = '你是一个专业的文档结构分析助手。分析给出的标题列表，根据语义层次关系，输出修正后的标题级别。只返回合法的 JSON 数组，不要有任何其他文字。';
+const userPrompt = `以下标题来自一份由 OCR 转换的 PDF 文档，当前所有标题可能都是同一级别（例如全部是二级标题），请根据标题内容的语义和层次关系，为每个标题分配正确的级别（1 为最高级，6 为最低级）。
+
+标题列表：
+${headingList}
+
+请返回 JSON 数组，格式如下（不要多余文字）：
+[{"index": 1, "level": 1}, {"index": 2, "level": 2}, ...]`;
+
+try {
+const response = await requestUrl({
+url: settings.aiBaseUrl?.trim() || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+'Authorization': `Bearer ${settings.dashScopeApiKey}`,
+},
+body: JSON.stringify({
+model: settings.aiModel?.trim() || 'deepseek-v4-flash',
+messages: [
+{ role: 'system', content: systemPrompt },
+{ role: 'user', content: userPrompt },
+],
+stream: false,
+}),
+throw: false,
+});
+
+if (response.status !== 200) return;
+
+const aiText: string = response.json?.choices?.[0]?.message?.content ?? '';
+const jsonMatch = aiText.match(/\[[\s\S]*\]/);
+if (!jsonMatch) return;
+
+const corrections: HeadingCorrection[] = JSON.parse(jsonMatch[0]) as HeadingCorrection[];
+
+for (const c of corrections) {
+const idx = c.index - 1;
+const heading = headings[idx];
+if (idx < 0 || !heading) continue;
+const newLevel = Math.max(1, Math.min(6, Math.round(c.level)));
+lines[heading.lineIndex] = '#'.repeat(newLevel) + ' ' + heading.text;
+}
+
+await plugin.app.vault.adapter.write(mdPath, lines.join('\n'));
+} catch (err) {
+console.warn('[PDF→MD] fixHeadingLevels failed, skipping:', err);
+}
+}
+
+interface SaveResult {
+pages: number;
+mdPath: string;
+content: string;
+}
+
 async function downloadAndSaveResults(
 plugin: MyPlugin,
 file: TFile,
 jsonlUrl: string
-): Promise<number> {
+): Promise<SaveResult> {
 const jsonlResponse = await requestUrl({ url: jsonlUrl, throw: false });
 if (jsonlResponse.status !== 200) {
 throw new Error(`下载 OCR 结果失败 (${jsonlResponse.status})`);
@@ -236,7 +331,7 @@ await plugin.app.vault.adapter.write(mdPath, mergedContent);
 await plugin.app.vault.create(mdPath, mergedContent);
 }
 
-return totalPages;
+return { pages: totalPages, mdPath, content: mergedContent };
 }
 
 export async function convertPdfToMarkdown(plugin: MyPlugin, file: TFile): Promise<void> {
@@ -257,7 +352,10 @@ notice.setMessage(`⏳ ${file.name}: ${msg}`);
 });
 
 notice.setMessage(`📥 正在下载并保存结果...`);
-const pages = await downloadAndSaveResults(plugin, file, jsonlUrl);
+const { pages, mdPath, content } = await downloadAndSaveResults(plugin, file, jsonlUrl);
+
+notice.setMessage(`🔧 正在用 AI 修复标题层级...`);
+await fixHeadingLevels(plugin, content, mdPath);
 
 notice.hide();
 new Notice(`✅ ${file.name} 已转换完成，共 ${pages} 页`, 6000);

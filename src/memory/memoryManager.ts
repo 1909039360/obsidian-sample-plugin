@@ -21,6 +21,12 @@ export class MemoryManager {
 		this.compressionService = new CompressionService();
 	}
 
+	/** Set memory active state explicitly. */
+	setActive(state: boolean): void {
+		this.active = state;
+		this.notify();
+	}
+
 	/** Toggle memory active state; returns the new state. */
 	toggle(): boolean {
 		this.active = !this.active;

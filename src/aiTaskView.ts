@@ -187,8 +187,10 @@ export class AITaskView extends ItemView {
 
 		this.memoryToggleBtn = toolbar.createEl("button", { cls: "ai-memory-btn" });
 		this.updateMemoryToggleBtn();
-		this.memoryToggleBtn.onclick = () => {
-			this.plugin.memoryManager.toggle();
+		this.memoryToggleBtn.onclick = async () => {
+			const isActive = this.plugin.memoryManager.toggle();
+			this.plugin.settings.memoryActive = isActive;
+			await this.plugin.saveSettings();
 		};
 
 		this.thinkingToggleBtn = toolbar.createEl("button", { cls: "ai-thinking-btn" });

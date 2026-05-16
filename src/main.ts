@@ -33,6 +33,7 @@ export default class MyPlugin extends Plugin {
 		);
 		this.memoryManager = new MemoryManager(this.app, () => this.settings);
 		await this.memoryManager.init();
+		this.memoryManager.setActive(this.settings.memoryActive ?? true);
 
 		// Register View
 		this.registerView(
