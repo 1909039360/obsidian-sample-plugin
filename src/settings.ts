@@ -27,6 +27,9 @@ export interface MyPluginSettings {
 	savedSoulPrompts: NamedPrompt[];
 	activeSoulPromptId: string;
 
+	// PDF → Markdown (PaddleOCR)
+	paddleOcrToken: string;
+
 	// Memory system
 	memoryEnabled: boolean;
 	memoryDirectory: string;
@@ -61,6 +64,9 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	
 	savedSoulPrompts: [],
 	activeSoulPromptId: '',
+
+	// PDF → Markdown (PaddleOCR)
+	paddleOcrToken: '',
 
 	// Memory system
 	memoryEnabled: true,
@@ -184,6 +190,23 @@ export class SampleSettingTab extends PluginSettingTab {
 				.filter(line => line.length > 0);
 			void this.plugin.saveSettings();
 		});
+
+		// ── PDF → Markdown ────────────────────────────────────────────────
+		new Setting(containerEl).setName('PDF 转 Markdown (PaddleOCR)').setHeading();
+
+		new Setting(containerEl)
+			.setName('PaddleOCR API Token')
+			.setDesc('用于 PDF → Markdown OCR 转换的 API Token（右键 PDF 文件即可触发转换）')
+			.addText(text => {
+				text.inputEl.type = 'password';
+				text
+					.setPlaceholder('在此粘贴 PaddleOCR token')
+					.setValue(this.plugin.settings.paddleOcrToken)
+					.onChange(async (value) => {
+						this.plugin.settings.paddleOcrToken = value.trim();
+						await this.plugin.saveSettings();
+					});
+			});
 
 		// ── 记忆系统 ────────────────────────────────────────────────────────
 		new Setting(containerEl).setName('记忆系统').setHeading();

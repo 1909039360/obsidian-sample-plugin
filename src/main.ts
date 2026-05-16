@@ -9,6 +9,7 @@ import {registerPluginCommands} from "./commands/registerCommands";
 import {MemoryManager} from "./memory/memoryManager";
 import { DocumentContextStore } from "./documentContext/store";
 import { DocumentContextSuggest } from "./documentContext/suggest";
+import { registerPdfFileMenu } from "./pdfToMarkdown";
 
 // Remember to rename these classes and interfaces!
 
@@ -40,6 +41,7 @@ export default class MyPlugin extends Plugin {
 		);
 
 		registerPluginCommands(this);
+		registerPdfFileMenu(this);
 
 		// This creates an icon in the left ribbon.
 		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
