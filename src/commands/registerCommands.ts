@@ -261,6 +261,8 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				inlineDocumentContexts
 			);
 
+			const hasExplicitDocContexts = documentContexts.length > 0;
+
 			if (documentContexts.length === 0) {
 				const raw = await plugin.app.vault.cachedRead(view.file);
 				documentContexts = [resolveDefaultDocumentContext(view.file, raw, cursor.line)];
@@ -278,6 +280,21 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			editor.setLine(cursor.line, headingLine);
 			const newLineLength = headingLine.length;
 
+			// Generate wiki-link references for explicitly selected document contexts
+			const wikiLinksText = hasExplicitDocContexts
+				? documentContexts
+						.map((item) => {
+							const nameWithoutExt = item.fileName.replace(/\.md$/i, "");
+							const heading =
+								item.titlePath.length > 0
+									? item.titlePath[item.titlePath.length - 1]
+									: "";
+							return heading ? `[[${nameWithoutExt}#${heading}]]` : `[[${nameWithoutExt}]]`;
+						})
+						.join("\n") + "\n"
+				: "";
+			const wikiLinkLineCount = hasExplicitDocContexts ? documentContexts.length : 0;
+
 			const enableThinking = plugin.settings.enableThinking;
 			if (enableThinking) {
 				editor.replaceRange("\n---\n\n```text\n思考过程...\n", {
@@ -285,13 +302,15 @@ export function registerPluginCommands(plugin: CommandHost): void {
 					ch: newLineLength,
 				});
 			} else {
-				editor.replaceRange("\n---\n\n", {
+				const insertText =
+					wikiLinkLineCount > 0 ? `\n---\n${wikiLinksText}\n` : "\n---\n\n";
+				editor.replaceRange(insertText, {
 					line: cursor.line,
 					ch: newLineLength,
 				});
 			}
 
-			let currentLine = cursor.line + (enableThinking ? 5 : 3);
+			let currentLine = cursor.line + (enableThinking ? 5 : 3 + wikiLinkLineCount);
 			let currentCh = 0;
 			let isAnswering = !enableThinking;
 			let accumulatedAnswer = "";
@@ -349,8 +368,12 @@ export function registerPluginCommands(plugin: CommandHost): void {
 
 						if (!isAnswering && enableThinking) {
 							isAnswering = true;
-							insertStreamChunk("\n```\n\n---\n\n");
-							currentLine += 5;
+							const thinkingTransition =
+								wikiLinkLineCount > 0
+									? `\n\`\`\`\n\n---\n${wikiLinksText}\n`
+									: "\n```\n\n---\n\n";
+							insertStreamChunk(thinkingTransition);
+							currentLine += 5 + wikiLinkLineCount;
 							currentCh = 0;
 						}
 
