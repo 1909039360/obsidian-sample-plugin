@@ -146,9 +146,23 @@ export class MemoryManager {
 		const now = new Date();
 		const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
 
+		const activeSystemPromptName = settings.savedSystemPrompts?.find(p => p.id === settings.activeSystemPromptId)?.name ?? '';
+		const activeSoulPromptName = settings.savedSoulPrompts?.find(p => p.id === settings.activeSoulPromptId)?.name ?? '';
+		const memoryStatus = this.isActive() ? 'ON' : 'OFF';
+		const enableThinking = settings.enableThinking;
+
+		const metaParts: string[] = [
+			`>**Model** \`${settings.aiModel}\` `,
+			activeSystemPromptName ? `>**System** \`${activeSystemPromptName}\`` : '',
+			activeSoulPromptName ? `>**Soul** \`${activeSoulPromptName}\`` : '',
+			`>**Memory** \`${memoryStatus}\``,
+			`>**Thinking** \`${enableThinking ? 'ON' : 'OFF'}\``,
+		].filter(Boolean) as string[];
+		const metaBlock = `${metaParts.join('\n')}\n`;
+
 		// Match the editor output format exactly
 		const wikiSection = wikiLinksText ? `${wikiLinksText}\n` : '\n';
-		const entry = `## ${question}\n\n*${timestamp}*\n\n---\n${wikiSection}\n${answer}\n\n---\n\n`;
+		const entry = `## ${question}\n\n*${timestamp}*\n\n---\n${wikiSection}${metaBlock}\n${answer}\n\n---\n\n`;
 
 		try {
 			if (!(await this.app.vault.adapter.exists(dir))) {
