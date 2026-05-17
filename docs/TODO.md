@@ -5,3 +5,9 @@
 
 deepseek-v4-flash
 qwen3.6-flash-2026-04-16
+
+
+2026年5月17日18:40:54 
+
+1 默认章节有 @current
+2 历史记录不带 model 
