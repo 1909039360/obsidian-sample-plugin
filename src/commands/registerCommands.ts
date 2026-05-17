@@ -298,21 +298,36 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			const wikiLinkLineCount = hasExplicitDocContexts ? documentContexts.length : 0;
 
 			const enableThinking = plugin.settings.enableThinking;
+
+			// Build metadata callout block
+			const activeSystemPromptName = plugin.settings.savedSystemPrompts?.find(p => p.id === plugin.settings.activeSystemPromptId)?.name ?? '';
+			const activeSoulPromptName = plugin.settings.savedSoulPrompts?.find(p => p.id === plugin.settings.activeSoulPromptId)?.name ?? '';
+			const memoryStatus = plugin.memoryManager.isActive() ? 'ON' : 'OFF';
+			const metaParts: string[] = [
+				`**Model** \`${plugin.settings.aiModel}\``,
+				activeSystemPromptName ? `**Prompt** \`${activeSystemPromptName}\`` : '',
+				activeSoulPromptName ? `**Soul** \`${activeSoulPromptName}\`` : '',
+				`**Memory** \`${memoryStatus}\``,
+				`**Thinking** \`${enableThinking ? 'ON' : 'OFF'}\``,
+			].filter(Boolean) as string[];
+			const metaBlock = `> ${metaParts.join('  ·  ')}\n`;
+
 			if (enableThinking) {
 				editor.replaceRange("\n---\n\n```text\n思考过程...\n", {
 					line: cursor.line,
 					ch: newLineLength,
 				});
 			} else {
-				const insertText =
-					wikiLinkLineCount > 0 ? `\n---\n${wikiLinksText}\n` : "\n---\n\n";
+				const insertText = wikiLinkLineCount > 0
+					? `\n---\n${wikiLinksText}${metaBlock}\n`
+					: `\n---\n${metaBlock}\n`;
 				editor.replaceRange(insertText, {
 					line: cursor.line,
 					ch: newLineLength,
 				});
 			}
 
-			let currentLine = cursor.line + (enableThinking ? 5 : 3 + wikiLinkLineCount);
+			let currentLine = cursor.line + (enableThinking ? 5 : 4 + wikiLinkLineCount);
 			let currentCh = 0;
 			let isAnswering = !enableThinking;
 			let accumulatedAnswer = "";
@@ -372,14 +387,10 @@ export function registerPluginCommands(plugin: CommandHost): void {
 							isAnswering = true;
 							const thinkingTransition =
 								wikiLinkLineCount > 0
-									? `\n\`\`\`\n\n---\n${wikiLinksText}\n`
-									: "\n```\n\n---\n\n";
-							insertStreamChunk(thinkingTransition);
-							currentLine += 5 + wikiLinkLineCount;
-							currentCh = 0;
-						}
-
-						insertStreamChunk(chunk);
+								? `\n\`\`\`\n\n---\n${wikiLinksText}${metaBlock}\n`
+								: `\n\`\`\`\n\n---\n${metaBlock}\n`;
+						insertStreamChunk(thinkingTransition);
+						currentLine += 6 + wikiLinkLineCount;
 						const lines = chunk.split("\n");
 						if (lines.length > 1) {
 							currentLine += lines.length - 1;
