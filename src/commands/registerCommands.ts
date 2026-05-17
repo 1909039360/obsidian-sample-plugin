@@ -398,7 +398,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						currentCh = 0;
 						setStreamCursor();
 						void plugin.memoryManager.recordTurn(question, accumulatedAnswer);
-						void plugin.memoryManager.appendToHistory(question, accumulatedAnswer);
+							void plugin.memoryManager.appendToHistory(question, accumulatedAnswer, wikiLinksText);
 					},
 				},
 				plugin.settings.aiBaseUrl,

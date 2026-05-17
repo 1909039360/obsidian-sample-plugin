@@ -2,6 +2,14 @@ https://aistudio.baidu.com/paddleocr/task/file/t-116f12d82ca8 pdf 转markdown �
 
 b0502eba0bfc61a6b590ac3e6f6c328f1891355a
 
+bailian 
+https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions 
+sk-1ed436ba5b3f4d0c9ab32af1ac4788bc
+
+
+deepseek 
+
+sk-3f0eda7fd7bc4b6588a1a92df4bd0fb4 
 
 用最通俗易通的语言解释这个章节
 按照原有的章节标题，每个小章节，一句通俗易懂话，概况当前章节的内容
