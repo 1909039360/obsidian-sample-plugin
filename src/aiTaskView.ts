@@ -240,6 +240,8 @@ export class AITaskView extends ItemView {
 		this.renderPromptConfig(this.promptPageContainer, "Soul Prompt (回答个性)", "savedSoulPrompts", "activeSoulPromptId");
 		this.promptPageContainer.createEl("hr", { cls: "ai-prompt-divider" });
 		this.renderModelSelector(this.promptPageContainer);
+		this.promptPageContainer.createEl("hr", { cls: "ai-prompt-divider" });
+		this.renderCustomPromptConfig(this.promptPageContainer);
 	}
 
 	private renderModelSelector(container: HTMLElement) {
@@ -260,6 +262,30 @@ export class AITaskView extends ItemView {
 				tag.addClass("is-active");
 			};
 		}
+	}
+
+	private renderCustomPromptConfig(container: HTMLElement) {
+		const settings = this.settings();
+		const headerDiv = container.createEl("div", { cls: "ai-prompt-header" });
+		headerDiv.createEl("h4", { text: "Popup prompts", cls: "ai-prompt-title" });
+
+		container.createEl("p", {
+			text: "在此处添加常用的用户级自定义命令提示词，它们将出现在 //// 快捷输入的建议列表顶部。每行一条。",
+			cls: "setting-item-description",
+		});
+
+		const promptsTextarea = container.createEl("textarea");
+		promptsTextarea.addClass("ai-prompt-content-input");
+		promptsTextarea.value = settings.customPrompts.join("\n");
+		promptsTextarea.rows = 6;
+		promptsTextarea.placeholder = "每行一个提示词";
+		promptsTextarea.onchange = async () => {
+			settings.customPrompts = promptsTextarea.value
+				.split("\n")
+				.map((line) => line.trim())
+				.filter((line) => line.length > 0);
+			await this.plugin.saveSettings();
+		};
 	}
 
 	private renderActiveContexts(container: HTMLElement) {
