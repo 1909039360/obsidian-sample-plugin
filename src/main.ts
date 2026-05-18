@@ -10,6 +10,7 @@ import {MemoryManager} from "./memory/memoryManager";
 import { DocumentContextStore } from "./documentContext/store";
 import { DocumentContextSuggest } from "./documentContext/suggest";
 import { registerPdfFileMenu } from "./pdfToMarkdown";
+import { getPromptMemorySyncKey, syncPromptMemoryFile } from "./memory/promptMemory";
 
 // Remember to rename these classes and interfaces!
 
@@ -18,9 +19,11 @@ export default class MyPlugin extends Plugin {
 	readonly selectionStore = new CodeBlockSelectionStore();
 	documentContextStore!: DocumentContextStore;
 	memoryManager!: MemoryManager;
+	private lastPromptMemorySyncKey = "";
 
 	async onload() {
 		await this.loadSettings();
+		await this.syncPromptMemory(true);
 		this.documentContextStore = new DocumentContextStore(
 			this.settings.documentContextHistoryLimit,
 			this.settings.lastDocumentContextSnapshot,
@@ -182,6 +185,21 @@ export default class MyPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		await this.syncPromptMemory();
+	}
+
+	private async syncPromptMemory(force = false) {
+		const nextSyncKey = getPromptMemorySyncKey(this.settings);
+		if (!force && nextSyncKey === this.lastPromptMemorySyncKey) {
+			return;
+		}
+
+		try {
+			await syncPromptMemoryFile(this.app, this.settings);
+			this.lastPromptMemorySyncKey = nextSyncKey;
+		} catch (error) {
+			console.error("Failed to sync prompt memory", error);
+		}
 	}
 }
 

@@ -1,7 +1,7 @@
 import { App, Editor, EditorPosition, EditorSuggest, EditorSuggestContext, EditorSuggestTriggerInfo, TFile } from 'obsidian';
 import { MyPluginSettings } from './settings';
 
-const BUILTIN_PROMPTS = [
+export const BUILTIN_PROMPTS = [
 	"翻译成中文",
 	"总结这段文字",
 	"解释这段代码",
