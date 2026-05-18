@@ -264,13 +264,14 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			);
 
 			const hasExplicitDocContexts = documentContexts.length > 0;
+			const shouldPersistDocumentContexts = hasExplicitDocContexts;
 
 			if (documentContexts.length === 0) {
 				const raw = await plugin.app.vault.cachedRead(view.file);
 				documentContexts = [resolveDefaultDocumentContext(view.file, raw, cursor.line)];
 			}
 
-			if (documentContexts.length > 0) {
+			if (shouldPersistDocumentContexts && documentContexts.length > 0) {
 				plugin.documentContextStore.setSelectedItems(documentContexts);
 				plugin.documentContextStore.setLastConversationSnapshot(documentContexts);
 				plugin.settings.lastDocumentContextSnapshot = documentContexts.map((item) => ({ ...item }));
