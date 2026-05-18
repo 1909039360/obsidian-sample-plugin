@@ -244,6 +244,39 @@ export class AITaskView extends ItemView {
 		this.renderCustomPromptConfig(this.promptPageContainer);
 	}
 
+	private createCollapsiblePromptSection(
+		container: HTMLElement,
+		title: string,
+		renderActions?: (actionsEl: HTMLElement) => void
+	): HTMLElement {
+		const sectionEl = container.createEl("section", { cls: "ai-prompt-section is-collapsed" });
+		const headerDiv = sectionEl.createEl("div", { cls: "ai-prompt-header" });
+		headerDiv.createEl("h4", { text: title, cls: "ai-prompt-title" });
+
+		const actionsEl = headerDiv.createEl("div", { cls: "ai-prompt-header-actions" });
+		if (renderActions) {
+			renderActions(actionsEl);
+		}
+
+		const toggleBtn = actionsEl.createEl("button", {
+			cls: "clickable-icon ai-prompt-toggle-btn",
+			attr: { "aria-label": `Toggle ${title}` },
+		});
+		const contentEl = sectionEl.createEl("div", { cls: "ai-prompt-section-body" });
+
+		const updateToggle = (collapsed: boolean) => {
+			sectionEl.toggleClass("is-collapsed", collapsed);
+			setIcon(toggleBtn, collapsed ? "chevron-right" : "chevron-down");
+		};
+
+		toggleBtn.onclick = () => {
+			updateToggle(!sectionEl.hasClass("is-collapsed"));
+		};
+
+		updateToggle(true);
+		return contentEl;
+	}
+
 	private renderModelSelector(container: HTMLElement) {
 		const settings = this.settings();
 		const headerDiv = container.createEl("div", { cls: "ai-prompt-header" });
@@ -266,15 +299,14 @@ export class AITaskView extends ItemView {
 
 	private renderCustomPromptConfig(container: HTMLElement) {
 		const settings = this.settings();
-		const headerDiv = container.createEl("div", { cls: "ai-prompt-header" });
-		headerDiv.createEl("h4", { text: "Popup prompts", cls: "ai-prompt-title" });
+		const contentEl = this.createCollapsiblePromptSection(container, "Popup prompts");
 
-		container.createEl("p", {
+		contentEl.createEl("p", {
 			text: "在此处添加常用的用户级自定义命令提示词，它们将出现在 //// 快捷输入的建议列表顶部。每行一条。",
 			cls: "setting-item-description",
 		});
 
-		const promptsTextarea = container.createEl("textarea");
+		const promptsTextarea = contentEl.createEl("textarea");
 		promptsTextarea.addClass("ai-prompt-content-input");
 		promptsTextarea.value = settings.customPrompts.join("\n");
 		promptsTextarea.rows = 6;
@@ -405,25 +437,23 @@ export class AITaskView extends ItemView {
 	) {
 		const settings = this.settings();
 		const list = settings[listKey];
-
-		const headerDiv = container.createEl("div", { cls: "ai-prompt-header" });
-		headerDiv.createEl("h4", { text: title, cls: "ai-prompt-title" });
-
-		const newBtn = headerDiv.createEl("button", { text: "+ New", cls: "ai-prompt-new-btn" });
-		newBtn.onclick = async () => {
-			const id = Date.now().toString();
-			list.push({ id, name: "New Prompt", content: "" });
-			settings[activeKey] = id;
-			await this.plugin.saveSettings();
-			this.renderContexts();
-		};
+		const contentEl = this.createCollapsiblePromptSection(container, title, (actionsEl) => {
+			const newBtn = actionsEl.createEl("button", { text: "+ New", cls: "ai-prompt-new-btn" });
+			newBtn.onclick = async () => {
+				const id = Date.now().toString();
+				list.push({ id, name: "New Prompt", content: "" });
+				settings[activeKey] = id;
+				await this.plugin.saveSettings();
+				this.renderContexts();
+			};
+		});
 
 		if (list.length === 0) {
-			container.createEl("p", { text: "未配置任何提示词。", cls: "text-muted" });
+			contentEl.createEl("p", { text: "未配置任何提示词。", cls: "text-muted" });
 			return;
 		}
 
-		const selectDiv = container.createEl("div", { cls: "ai-prompt-select-row" });
+		const selectDiv = contentEl.createEl("div", { cls: "ai-prompt-select-row" });
 		const select = selectDiv.createEl("select", { cls: "dropdown ai-prompt-select" });
 
 		if (activeKey === "activeSoulPromptId") {
@@ -457,7 +487,7 @@ export class AITaskView extends ItemView {
 			this.renderContexts();
 		};
 
-		const nameInput = container.createEl("input", { type: "text" });
+		const nameInput = contentEl.createEl("input", { type: "text" });
 		nameInput.addClass("ai-prompt-name-input");
 		nameInput.value = activePrompt.name;
 		nameInput.placeholder = "Prompt Name";
@@ -467,7 +497,7 @@ export class AITaskView extends ItemView {
 			this.renderContexts();
 		};
 
-		const textInput = container.createEl("textarea");
+		const textInput = contentEl.createEl("textarea");
 		textInput.addClass("ai-prompt-content-input");
 		textInput.value = activePrompt.content;
 		textInput.placeholder = title === "System Prompt" ? "你是一个... {{DOCUMENT_CONTEXT}}" : "用鲁迅的语气回答...";

@@ -479,6 +479,26 @@ If your plugin does not need CSS, delete this file.
 	align-items: center;
 }
 
+.ai-prompt-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ai-prompt-section-body {
+	margin-top: 8px;
+}
+
+.ai-prompt-section.is-collapsed .ai-prompt-section-body {
+	display: none;
+}
+
+.ai-prompt-toggle-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
 .ai-prompt-select-row {
 	margin-bottom: 8px;
 }
