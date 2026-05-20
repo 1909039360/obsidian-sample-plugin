@@ -3,7 +3,6 @@ import { App, Editor, MarkdownView, Notice } from "obsidian";
 import { streamDashScope } from "../ai";
 import { AI_TASK_VIEW_TYPE, AITaskView } from "../aiTaskView";
 import { mergeDocumentContexts, resolveDocumentContextsFromLine, stripDocumentMarkersFromText } from "../documentContext/navigation";
-import { resolveDefaultDocumentContext } from "../documentContext/parser";
 import { DocumentContextStore } from "../documentContext/store";
 import { MemoryManager } from "../memory/memoryManager";
 import { CodeBlockSelectionStore, createCodeBlockContext } from "../selectionStore";
@@ -265,11 +264,6 @@ export function registerPluginCommands(plugin: CommandHost): void {
 
 			const hasExplicitDocContexts = documentContexts.length > 0;
 			const shouldPersistDocumentContexts = hasExplicitDocContexts;
-
-			if (documentContexts.length === 0) {
-				const raw = await plugin.app.vault.cachedRead(view.file);
-				documentContexts = [resolveDefaultDocumentContext(view.file, raw, cursor.line)];
-			}
 
 			if (shouldPersistDocumentContexts && documentContexts.length > 0) {
 				plugin.documentContextStore.setSelectedItems(documentContexts);
