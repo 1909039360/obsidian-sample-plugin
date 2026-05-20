@@ -1,5 +1,7 @@
+import type { App } from "obsidian";
 import { CodeBlockContext } from "./selectionStore";
 import type { DocumentContextItem } from "./documentContext/types";
+import { appendAILog } from "./memory/aiLogger";
 
 export interface AIStreamCallbacks {
 	onReasoning: (chunk: string) => void;
@@ -52,6 +54,7 @@ function injectPromptSection(template: string, placeholder: string, value: strin
 }
 
 export async function streamDashScope(
+	app: App,
 	query: string,
 	activeContexts: CodeBlockContext[],
 	documentContexts: DocumentContextItem[],
@@ -72,6 +75,9 @@ export async function streamDashScope(
 
 	const resolvedBaseUrl = baseUrl?.trim() || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
 	const resolvedModel = model?.trim() || 'deepseek-v4-flash';
+	const requestMessages: AIMessage[] = [];
+	let accumulatedReasoning = "";
+	let accumulatedContent = "";
 
 	try {
 		const activeContextStr = formatActiveContexts(activeContexts);
@@ -98,6 +104,11 @@ export async function streamDashScope(
 		systemPrompt = injectPromptSection(systemPrompt, "{{ACTIVE_CONTEXT}}", activeContextStr);
 		systemPrompt = injectPromptSection(systemPrompt, "{{DOCUMENT_CONTEXT}}", documentContextStr);
 		systemPrompt = injectPromptSection(systemPrompt, "{{CONTEXT}}", contextStr);
+		requestMessages.push(
+			{ role: 'system', content: systemPrompt },
+			...(conversationHistory ?? []),
+			{ role: 'user', content: query }
+		);
 
 		const response = await window.fetch(resolvedBaseUrl, {
 			method: 'POST',
@@ -107,11 +118,7 @@ export async function streamDashScope(
 			},
 			body: JSON.stringify({
 				model: resolvedModel,
-				messages: [
-					{ role: 'system', content: systemPrompt },
-					...(conversationHistory ?? []),
-					{ role: 'user', content: query }
-				],
+				messages: requestMessages,
 				enable_thinking: enableThinking,
 				stream: true
 			})
@@ -150,10 +157,12 @@ export async function streamDashScope(
 						const delta = data.choices[0].delta;
 						
 						if (delta.reasoning_content !== undefined && delta.reasoning_content !== null) {
+							accumulatedReasoning += delta.reasoning_content;
 							callbacks.onReasoning(delta.reasoning_content);
 						}
 
 						if (delta.content !== undefined && delta.content !== null) {
+							accumulatedContent += delta.content;
 							callbacks.onContent(delta.content);
 						}
 					}
@@ -163,9 +172,41 @@ export async function streamDashScope(
 			}
 		}
 
+		await appendAILog(app, {
+			source: "streamDashScope",
+			request: {
+				baseUrl: resolvedBaseUrl,
+				model: resolvedModel,
+				enableThinking,
+				activeContextCount: activeContexts.length,
+				documentContextCount: documentContexts.length,
+				messages: requestMessages,
+			},
+			response: {
+				reasoning: accumulatedReasoning,
+				content: accumulatedContent,
+			},
+		});
+
 		callbacks.onComplete();
 
 	} catch (error) {
+		await appendAILog(app, {
+			source: "streamDashScope",
+			request: {
+				baseUrl: resolvedBaseUrl,
+				model: resolvedModel,
+				enableThinking,
+				activeContextCount: activeContexts.length,
+				documentContextCount: documentContexts.length,
+				messages: requestMessages,
+			},
+			response: {
+				reasoning: accumulatedReasoning,
+				content: accumulatedContent,
+			},
+			error: error instanceof Error ? error.stack ?? error.message : String(error),
+		});
 		callbacks.onError(error instanceof Error ? error : new Error(String(error)));
 	}
 }

@@ -52,13 +52,13 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	aiModel: 'deepseek-v4-flash',
 	customPrompts: [],
 	
-	systemPromptTemplate: "你是一个强大的 AI 助手。\n\n{{CONTEXT}}\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)",
+	systemPromptTemplate: "你是一个强大的 AI 助手。\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)  \n 用户提供的上下文信息：\n{{CONTEXT}}",
 	
 	savedSystemPrompts: [
 		{
 			id: 'default-system-prompt',
 			name: '默认系统提示词',
-			content: "你是一个强大的 AI 助手。\n\n{{CONTEXT}}\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)"
+			content: "你是一个强大的 AI 助手。 \n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###) \n 用户提供的上下文信息：\n{{CONTEXT}}"
 		}
 	],
 	activeSystemPromptId: 'default-system-prompt',

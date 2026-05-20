@@ -354,6 +354,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			};
 
 			await streamDashScope(
+				plugin.app,
 				question,
 				activeContexts,
 				documentContexts,

@@ -80,6 +80,7 @@ export class MemoryManager {
 			if (turnsToCompress.length > 0) {
 				// Fire-and-forget; errors are caught inside CompressionService
 				void this.compressionService.compress(
+					this.app,
 					turnsToCompress,
 					settings,
 					this.fileAdapter,

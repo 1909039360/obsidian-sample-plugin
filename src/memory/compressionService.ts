@@ -1,6 +1,8 @@
+import type { App } from 'obsidian';
 import { ConversationTurn, LongTermMemoryEntry, LongTermMemoryTag } from './types';
 import { FileSystemAdapter } from './fileSystemAdapter';
 import { MyPluginSettings } from '../settings';
+import { appendAILog } from './aiLogger';
 
 // ── Prompts ────────────────────────────────────────────────────────────────
 
@@ -33,34 +35,63 @@ const USER_PROFILE_UPDATE_PROMPT = `你是一个用户画像更新助手。根�
 // ── AI call helper (non-streaming) ────────────────────────────────────────
 
 async function callAIOnce(
+	app: App,
+	source: string,
 	prompt: string,
 	userContent: string,
 	apiKey: string,
 	baseUrl: string,
 	model: string
 ): Promise<string> {
-	const response = await window.fetch(baseUrl, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'Authorization': `Bearer ${apiKey}`,
-		},
-		body: JSON.stringify({
-			model,
-			messages: [
-				{ role: 'system', content: prompt },
-				{ role: 'user', content: userContent },
-			],
-			stream: false,
-		}),
-	});
+	const requestMessages = [
+		{ role: 'system', content: prompt },
+		{ role: 'user', content: userContent },
+	];
 
-	if (!response.ok) {
-		throw new Error(`AI API error: ${response.status} ${response.statusText}`);
+	try {
+		const response = await window.fetch(baseUrl, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Bearer ${apiKey}`,
+			},
+			body: JSON.stringify({
+				model,
+				messages: requestMessages,
+				stream: false,
+			}),
+		});
+
+		if (!response.ok) {
+			throw new Error(`AI API error: ${response.status} ${response.statusText}`);
+		}
+
+		const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+		const content = data.choices?.[0]?.message?.content?.trim() ?? '';
+		await appendAILog(app, {
+			source,
+			request: {
+				baseUrl,
+				model,
+				messages: requestMessages,
+			},
+			response: {
+				content,
+			},
+		});
+		return content;
+	} catch (error) {
+		await appendAILog(app, {
+			source,
+			request: {
+				baseUrl,
+				model,
+				messages: requestMessages,
+			},
+			error: error instanceof Error ? error.stack ?? error.message : String(error),
+		});
+		throw error;
 	}
-
-	const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-	return data.choices?.[0]?.message?.content?.trim() ?? '';
 }
 
 function extractJsonArray(raw: string): unknown[] {
@@ -79,6 +110,7 @@ export class CompressionService {
 	private isCompressing = false;
 
 	async compress(
+		app: App,
 		turns: ConversationTurn[],
 		settings: MyPluginSettings,
 		fileAdapter: FileSystemAdapter,
@@ -88,7 +120,7 @@ export class CompressionService {
 		this.isCompressing = true;
 
 		try {
-			await this.doCompress(turns, settings, fileAdapter, onSummaryReady);
+			await this.doCompress(app, turns, settings, fileAdapter, onSummaryReady);
 		} catch (e) {
 			console.error('[MemorySystem] Compression failed:', e);
 		} finally {
@@ -97,6 +129,7 @@ export class CompressionService {
 	}
 
 	private async doCompress(
+		app: App,
 		turns: ConversationTurn[],
 		settings: MyPluginSettings,
 		fileAdapter: FileSystemAdapter,
@@ -107,7 +140,7 @@ export class CompressionService {
 		const dialogText = turns.map(t => `${t.role === 'user' ? '用户' : 'AI'}：${t.content}`).join('\n\n');
 
 		// 1. Generate short-term summary
-		const summary = await callAIOnce(SHORT_TERM_SUMMARY_PROMPT, dialogText, apiKey, baseUrl, model);
+		const summary = await callAIOnce(app, 'memory.short-term-summary', SHORT_TERM_SUMMARY_PROMPT, dialogText, apiKey, baseUrl, model);
 		if (!summary) throw new Error('Empty summary from AI');
 
 		// Notify caller so ConversationStore can be updated synchronously
@@ -125,7 +158,7 @@ export class CompressionService {
 		);
 
 		// 2. Extract long-term memory entries
-		const rawEntries = await callAIOnce(LONG_TERM_EXTRACT_PROMPT, dialogText, apiKey, baseUrl, model);
+		const rawEntries = await callAIOnce(app, 'memory.long-term-extract', LONG_TERM_EXTRACT_PROMPT, dialogText, apiKey, baseUrl, model);
 		const parsed = extractJsonArray(rawEntries) as Partial<LongTermMemoryEntry>[];
 
 		const validEntries: LongTermMemoryEntry[] = parsed
@@ -144,7 +177,7 @@ export class CompressionService {
 
 			const personalityEntries = validEntries.filter(e => e.tag === 'personality');
 			if (personalityEntries.length > 0) {
-				await this.updateUserProfile(personalityEntries, settings, fileAdapter);
+				await this.updateUserProfile(app, personalityEntries, settings, fileAdapter);
 			}
 		}
 
@@ -197,6 +230,7 @@ export class CompressionService {
 	// ── User profile ──────────────────────────────────────────────────────
 
 	private async updateUserProfile(
+		app: App,
 		personalityEntries: LongTermMemoryEntry[],
 		settings: MyPluginSettings,
 		fileAdapter: FileSystemAdapter
@@ -207,7 +241,7 @@ export class CompressionService {
 		const newEntries = personalityEntries.map(e => `- ${e.summary}`).join('\n');
 
 		const userContent = `【新提取的性格/偏好条目】\n${newEntries}\n\n【当前用户画像】\n${currentProfile || '（暂无）'}`;
-		const updatedProfile = await callAIOnce(USER_PROFILE_UPDATE_PROMPT, userContent, apiKey, baseUrl, model);
+		const updatedProfile = await callAIOnce(app, 'memory.user-profile-update', USER_PROFILE_UPDATE_PROMPT, userContent, apiKey, baseUrl, model);
 		if (!updatedProfile) return;
 
 		const ts = new Date().toLocaleString('zh-CN');
