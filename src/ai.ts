@@ -41,7 +41,7 @@ function formatDocumentContexts(items: DocumentContextItem[]): string {
 			`[文档 ${index + 1}]`,
 			`文件: ${item.filePath}`,
 			`标题路径: ${titlePath}`,
-			"`start`\n" + item.content + "\n`end`",
+			item.content,
 		].join("\n");
 	}).join("\n\n");
 }
