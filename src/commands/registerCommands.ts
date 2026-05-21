@@ -234,6 +234,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 		name: "AI Completion (DashScope)",
 		hotkeys: [{ modifiers: ["Mod"], key: "Enter" }],
 		editorCallback: async (editor: Editor, view: MarkdownView) => {
+			// 从当前行提取 //问题// 形式的提问内容。
 			const cursor = editor.getCursor();
 			const line = editor.getLine(cursor.line);
 			const match = line.match(/\/\/(.*?)\/\/\s*$/);
@@ -248,6 +249,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				return;
 			}
 
+			// 收集两类上下文：显式选中的活动上下文，以及当前行内 @doc 解析出的文档上下文。
 			const question = match[1].trim();
 			const activeContexts = plugin.selectionStore.getSelectedContexts();
 			const inlineDocumentContexts = await resolveDocumentContextsFromLine(
@@ -265,6 +267,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			const hasExplicitDocContexts = documentContexts.length > 0;
 			const shouldPersistDocumentContexts = hasExplicitDocContexts;
 
+			// 将本次明确使用的文档上下文持久化，便于下次继续沿用或快捷跳转。
 			if (shouldPersistDocumentContexts && documentContexts.length > 0) {
 				plugin.documentContextStore.setSelectedItems(documentContexts);
 				plugin.documentContextStore.setLastConversationSnapshot(documentContexts);
@@ -272,12 +275,13 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				await plugin.saveSettings();
 			}
 
+			// 将原问题行替换成 Markdown 标题，作为本次 AI 问答的标题。
 			const normalizedQuestion = stripDocumentMarkersFromText(line.substring(0, match.index) + match[1]);
 			const headingLine = `## ${normalizedQuestion}`;
 			editor.setLine(cursor.line, headingLine);
 			const newLineLength = headingLine.length;
 
-			// Generate wiki-link references for explicitly selected document contexts
+			// 为显式文档上下文生成 wiki-link，方便回答落盘后回溯来源。
 			const wikiLinksText = hasExplicitDocContexts
 				? documentContexts
 						.map((item) => {
@@ -294,7 +298,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 
 			const enableThinking = plugin.settings.enableThinking;
 
-			// Build metadata callout block
+			// 构造回答前的元信息块，记录模型、提示词、记忆开关与 thinking 状态。
 			const activeSystemPromptName = plugin.settings.savedSystemPrompts?.find(p => p.id === plugin.settings.activeSystemPromptId)?.name ?? '';
 			const activeSoulPromptName = plugin.settings.savedSoulPrompts?.find(p => p.id === plugin.settings.activeSoulPromptId)?.name ?? '';
 			const memoryStatus = plugin.memoryManager.isActive() ? 'ON' : 'OFF';
@@ -307,6 +311,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			].filter(Boolean) as string[];
 			const metaBlock = `${metaParts.join('\n')}\n`;
 
+			// 先写入答案框架；开启 thinking 时先预留“思考过程”代码块，否则直接进入答案区。
 			if (enableThinking) {
 				editor.replaceRange("\n---\n\n```text\n思考过程...\n", {
 					line: cursor.line,
@@ -327,6 +332,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			let isAnswering = !enableThinking;
 			let accumulatedAnswer = "";
 
+			// 统一的流式写入函数，兼容 CodeMirror 和普通 editor 接口。
 			const insertStreamChunk = (text: string) => {
 				const cm = (editor as any).cm;
 				if (cm) {
@@ -340,6 +346,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				}
 			};
 
+			// 流式结束后把光标定位到最终输出末尾。
 			const setStreamCursor = () => {
 				const cm = (editor as any).cm;
 				if (cm) {
@@ -353,6 +360,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				}
 			};
 
+			// 发起 AI 流式请求，并把 reasoning/content 分片实时写回编辑器。
 			await streamDashScope(
 				plugin.app,
 				question,
@@ -362,6 +370,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				enableThinking,
 				{
 					onReasoning: (chunk) => {
+						// thinking 模式下，先把模型的思考内容写进代码块。
 						if (!enableThinking) {
 							return;
 						}
@@ -377,6 +386,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						}
 					},
 					onContent: (chunk) => {
+						// 收集最终回答正文，并在首个正文分片到来时关闭思考区、切换到答案区。
 						accumulatedAnswer += chunk;
 
 						if (!isAnswering && enableThinking) {
@@ -404,6 +414,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						new Notice("AI Request Errored: " + error.message);
 					},
 					onComplete: () => {
+						// 请求结束后补齐分隔线，并把问答写入短期记忆和历史文件。
 						insertStreamChunk("\n\n---\n");
 						currentLine += 3;
 						currentCh = 0;
