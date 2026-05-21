@@ -53,6 +53,51 @@ function injectPromptSection(template: string, placeholder: string, value: strin
 	return `${template}\n\n${value}`;
 }
 
+function replacePromptPlaceholder(template: string, placeholder: string, value: string): string {
+	return template.split(placeholder).join(value);
+}
+
+function injectContextsIntoPrompt(
+	template: string,
+	activeContextStr: string,
+	documentContextStr: string,
+	contextStr: string
+): string {
+	const hasContextPlaceholder = template.includes("{{CONTEXT}}");
+	const hasActiveContextPlaceholder = template.includes("{{ACTIVE_CONTEXT}}");
+	const hasDocumentContextPlaceholder = template.includes("{{DOCUMENT_CONTEXT}}");
+
+	let prompt = template;
+
+	if (hasContextPlaceholder) {
+		prompt = replacePromptPlaceholder(prompt, "{{CONTEXT}}", contextStr);
+	} else {
+		prompt = replacePromptPlaceholder(prompt, "{{CONTEXT}}", "");
+	}
+
+	if (hasActiveContextPlaceholder) {
+		prompt = replacePromptPlaceholder(prompt, "{{ACTIVE_CONTEXT}}", activeContextStr);
+	} else {
+		prompt = replacePromptPlaceholder(prompt, "{{ACTIVE_CONTEXT}}", "");
+	}
+
+	if (hasDocumentContextPlaceholder) {
+		prompt = replacePromptPlaceholder(prompt, "{{DOCUMENT_CONTEXT}}", documentContextStr);
+	} else {
+		prompt = replacePromptPlaceholder(prompt, "{{DOCUMENT_CONTEXT}}", "");
+	}
+
+	if (!hasContextPlaceholder && !hasActiveContextPlaceholder && activeContextStr) {
+		prompt = injectPromptSection(prompt, "{{ACTIVE_CONTEXT}}", activeContextStr);
+	}
+
+	if (!hasContextPlaceholder && !hasDocumentContextPlaceholder && documentContextStr) {
+		prompt = injectPromptSection(prompt, "{{DOCUMENT_CONTEXT}}", documentContextStr);
+	}
+
+	return prompt;
+}
+
 export async function streamDashScope(
 	app: App,
 	query: string,
@@ -101,9 +146,7 @@ export async function streamDashScope(
 			systemPrompt = systemPrompt.replace("{{MEMORY}}", "");
 		}
 
-		systemPrompt = injectPromptSection(systemPrompt, "{{ACTIVE_CONTEXT}}", activeContextStr);
-		systemPrompt = injectPromptSection(systemPrompt, "{{DOCUMENT_CONTEXT}}", documentContextStr);
-		systemPrompt = injectPromptSection(systemPrompt, "{{CONTEXT}}", contextStr);
+		systemPrompt = injectContextsIntoPrompt(systemPrompt, activeContextStr, documentContextStr, contextStr);
 		requestMessages.push(
 			{ role: 'system', content: systemPrompt },
 			...(conversationHistory ?? []),
