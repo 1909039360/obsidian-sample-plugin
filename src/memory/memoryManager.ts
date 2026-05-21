@@ -100,7 +100,11 @@ export class MemoryManager {
 	getConversationHistory(): AIMessage[] {
 		const settings = this.getSettings();
 		if (!settings.memoryEnabled || !this.active) return [];
-		return this.store.toMessages() as AIMessage[];
+		const messages = this.store.toMessages() as AIMessage[];
+		return messages.map(msg => ({
+			...msg,
+			content: msg.content.replace(/`start`\r?\n[\s\S]*?\n`end`/g, '略，已包含在最新的文档上下文中')
+		}));
 	}
 
 	/**
@@ -123,7 +127,8 @@ export class MemoryManager {
 			parts.push(`最近对话：\n${recent}`);
 		}
 		if (parts.length === 1) return '';
-		return parts.join('\n\n');
+		const result = parts.join('\n\n');
+		return result.replace(/`start`\r?\n[\s\S]*?\n`end`/g, '略，已包含在最新的文档上下文中');
 	}
 
 	/** Clear the current session's short-term memory. */
