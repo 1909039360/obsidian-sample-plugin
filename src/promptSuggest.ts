@@ -15,7 +15,9 @@ export const BUILTIN_PROMPTS = [
 
 export class AIPromptSuggest extends EditorSuggest<string> {
 	private readonly getSettings: () => MyPluginSettings;
+	// Detect a trailing @marker in normal editor text so prompt suggestions yield to document-context suggestions.
 	private static readonly DOCUMENT_TRIGGER_PATTERN = /(?:^|\s|\]|\/\/)@([^\s@]*)$/;
+	// Detect a trailing @marker inside //...// inline prompts for the same handoff behavior.
 	private static readonly INLINE_PROMPT_DOCUMENT_TRIGGER_PATTERN = /\/\/.*@([^\s@]*)$/;
 
 	constructor(app: App, getSettings: () => MyPluginSettings) {
