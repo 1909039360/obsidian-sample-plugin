@@ -199,6 +199,17 @@ export async function streamDashScope(
 			{ role: 'user', content: query }
 		);
 
+		// 构造请求体。遇到部分模型严格限制参数时（如 qwen3.7 报错 enable_thinking 仅限 True），
+		// 当 user 没有开启思考模式时，直接将其从参数中移除。
+		const requestBody: any = {
+			model: resolvedModel,
+			messages: requestMessages,
+			stream: true
+		};
+		if (enableThinking) {
+			requestBody.enable_thinking = true;
+		}
+
 		// 使用浏览器原生 fetch 发起流式请求。
 		// 当前接口遵循 OpenAI-compatible 格式，因此 body 中使用 messages / stream / model 等字段。
 		const response = await window.fetch(resolvedBaseUrl, {
@@ -207,16 +218,18 @@ export async function streamDashScope(
 				'Content-Type': 'application/json',
 				'Authorization': `Bearer ${apiKey}`
 			},
-			body: JSON.stringify({
-				model: resolvedModel,
-				messages: requestMessages,
-				enable_thinking: enableThinking,
-				stream: true
-			})
+			body: JSON.stringify(requestBody)
 		});
 
 		if (!response.ok) {
-			throw new Error(`API 请求失败: ${response.status} ${response.statusText}`);
+			let errorDetail = "";
+			try {
+				const errorJson = await response.json();
+				errorDetail = JSON.stringify(errorJson);
+			} catch (e) {
+				errorDetail = await response.text();
+			}
+			throw new Error(`API 请求失败: ${response.status} ${response.statusText} - ${errorDetail}`);
 		}
 
 		if (!response.body) {
