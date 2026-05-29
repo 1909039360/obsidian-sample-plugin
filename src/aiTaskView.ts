@@ -207,33 +207,6 @@ export class AITaskView extends ItemView {
 		this.renderDocumentContexts(this.contextPageContainer);
 	}
 
-	private readonly MODEL_LIST = [
-		"qwen3.5-122b-a10b",
-		"qwen3.5-35b-a3b",
-		"qwen3.6-flash-2026-04-16",
-		"qwen3.5-plus",
-		"qwen3.6-35b-a3b",
-		"qwen3.5-plus-2026-02-15",
-		"glm-5",
-		"qwen3.5-27b",
-		"qwen3.6-plus",
-		"qwen3.6-max",
-		"qwen3.6-max-preview",
-		"glm-5.1",
-		"qwen3.6-plus-2026-04-02",
-		"qwen3.5-plus-2026-04-20",
-		"qwen3.5-flash-2026-02-23",
-		"kimi-k2.6",
-		"qwen3.5-397b-a17b",
-		"qwen3.6-flash",
-		"MiniMax-M2.5",
-		"qwen-flash-character-2026-02-26",
-		"deepseek-v4-flash",
-		"deepseek-v4-pro",
-		"qwen3.6-27b",
-		"gui-plus-2026-02-26",
-	];
-
 	private renderPromptPage() {
 		this.renderPromptConfig(this.promptPageContainer, "System Prompt", "savedSystemPrompts", "activeSystemPromptId");
 		this.promptPageContainer.createEl("hr", { cls: "ai-prompt-divider" });
@@ -283,7 +256,8 @@ export class AITaskView extends ItemView {
 		headerDiv.createEl("h4", { text: "Modle", cls: "ai-prompt-title" });
 
 		const tagsDiv = container.createEl("div", { cls: "ai-model-tags" });
-		for (const model of this.MODEL_LIST) {
+		const availableModels = settings.availableModels || [];
+		for (const model of availableModels) {
 			const tag = tagsDiv.createEl("button", { text: model, cls: "ai-model-tag" });
 			if (settings.aiModel === model) {
 				tag.addClass("is-active");

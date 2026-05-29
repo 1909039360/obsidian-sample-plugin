@@ -15,6 +15,7 @@ export interface MyPluginSettings {
 	enableThinking: boolean;
 	aiBaseUrl: string;
 	aiModel: string;
+	availableModels: string[];
 	customPrompts: string[];
 	
 	// Legacy
@@ -50,6 +51,36 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	enableThinking: false,
 	aiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
 	aiModel: 'deepseek-v4-flash',
+	availableModels: [
+		"qwen3.7-max-2026-05-17",
+		"qwen3.7-max-preview",
+		"qwen3.7-max",
+		"qwen3.7-max-2026-05-20",
+		"qwen3.5-122b-a10b",
+		"qwen3.5-35b-a3b",
+		"qwen3.6-flash-2026-04-16",
+		"qwen3.5-plus",
+		"qwen3.6-35b-a3b",
+		"qwen3.5-plus-2026-02-15",
+		"glm-5",
+		"qwen3.5-27b",
+		"qwen3.6-plus",
+		"qwen3.6-max",
+		"qwen3.6-max-preview",
+		"glm-5.1",
+		"qwen3.6-plus-2026-04-02",
+		"qwen3.5-plus-2026-04-20",
+		"qwen3.5-flash-2026-02-23",
+		"kimi-k2.6",
+		"qwen3.5-397b-a17b",
+		"qwen3.6-flash",
+		"MiniMax-M2.5",
+		"qwen-flash-character-2026-02-26",
+		"deepseek-v4-flash",
+		"deepseek-v4-pro",
+		"qwen3.6-27b",
+		"gui-plus-2026-02-26",
+	],
 	customPrompts: [],
 	
 	systemPromptTemplate: "你是一个强大的 AI 助手。\n\n请回答用户的问题。要求：\n1. 返回的内容为 Markdown 格式\n2. 最大标题级别为3 (###)  \n 用户提供的上下文信息：\n{{CONTEXT}}",
@@ -146,6 +177,21 @@ export class SampleSettingTab extends PluginSettingTab {
 					this.plugin.settings.aiModel = value.trim();
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('可选模型列表 (Available Models)')
+			.setDesc('每行一个模型标识，将在 AI Tasks 面板中显示为可选标签。')
+			.addTextArea(text => {
+				text.inputEl.addClass('cbf-prompts-textarea');
+				text.inputEl.rows = 4;
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.availableModels.join('\n'))
+					.setValue(this.plugin.settings.availableModels.join('\n'))
+					.onChange(async (value) => {
+						this.plugin.settings.availableModels = value.split('\n').map(m => m.trim()).filter(m => m.length > 0);
+						await this.plugin.saveSettings();
+					});
+			});
 
 		new Setting(containerEl)
 			.setName('启用思考模式 (enable thinking)')
