@@ -311,23 +311,31 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			].filter(Boolean) as string[];
 			const metaBlock = `${metaParts.join('\n')}\n`;
 
-			// 先写入答案框架；开启 thinking 时先预留“思考过程”代码块，否则直接进入答案区。
+			// 无论是否开启 thinking，都先把 meta 块（包含引用的 Wiki 链接和模型配置参数）写入到回答前的位置。
+			const prefixText = wikiLinkLineCount > 0
+				? `\n---\n${wikiLinksText}\n${metaBlock}\n`
+				: `\n---\n${metaBlock}\n`;
+			
+			// 开启 thinking 时在 meta 块之后预留“思考过程”代码块，否则直接进入答案区。
 			if (enableThinking) {
-				editor.replaceRange("\n---\n\n```text\n思考过程...\n", {
+				editor.replaceRange(`${prefixText}\`\`\`text\n思考过程...\n`, {
 					line: cursor.line,
 					ch: newLineLength,
 				});
 			} else {
-				const insertText = wikiLinkLineCount > 0
-					? `\n---\n${wikiLinksText}\n${metaBlock}\n`
-					: `\n---\n${metaBlock}\n`;
-				editor.replaceRange(insertText, {
+				editor.replaceRange(prefixText, {
 					line: cursor.line,
 					ch: newLineLength,
 				});
 			}
 
-			let currentLine = cursor.line + (enableThinking ? 10 : 9 + wikiLinkLineCount);
+			// 预设光标向下偏移量以匹配初始插入内容
+			// 若有 wikiLinksText -> wikiLinkLineCount + 1行
+			// metaBlock -> 约 4-6 行不等，按 '\n' 的个数计算
+			const metaLineCount = metaParts.length + 1;
+			const prefixLineCount = 3 + (wikiLinkLineCount > 0 ? wikiLinkLineCount + 1 : 0) + metaLineCount;
+
+			let currentLine = cursor.line + prefixLineCount + (enableThinking ? 1 : -1);
 			let currentCh = 0;
 			let isAnswering = !enableThinking;
 			let accumulatedAnswer = "";
@@ -391,12 +399,13 @@ export function registerPluginCommands(plugin: CommandHost): void {
 
 						if (!isAnswering && enableThinking) {
 							isAnswering = true;
-							const thinkingTransition =
-								wikiLinkLineCount > 0
-									? `\n\`\`\`\n\n---\n${wikiLinksText}${metaBlock}\n`
-									: `\n\`\`\`\n\n---\n${metaBlock}\n`;
+							
+							// 如果之前有输出过 reasoning（也就是当前光标位置已经在思考代码块里），我们需要闭合它；
+							// 如果模型压根就没吐出任何 onReasoning 片段（如 qwen3.7-max），直接就来了 content（比如自己吐出了 "思考过程：... \n\n 正文..."），
+							// 我们同样需要把最开始预留打开的 ```text 思考过程\n 给闭合掉。
+							const thinkingTransition = `\n\`\`\`\n\n---\n\n`;
 							insertStreamChunk(thinkingTransition);
-							currentLine += 6 + wikiLinkLineCount;
+							currentLine += 4;
 							currentCh = 0;
 						}
 
