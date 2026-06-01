@@ -296,8 +296,8 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				: "";
 			const wikiLinkLineCount = hasExplicitDocContexts ? documentContexts.length : 0;
 
-			// let enableThinking = plugin.settings.enableThinking;
-			let enableThinking = false;
+			let enableThinking = plugin.settings.enableThinking;
+			// let enableThinking = false;
 
 			// 构造回答前的元信息块，记录模型、提示词、记忆开关与 thinking 状态。
 			const activeSystemPromptName = plugin.settings.savedSystemPrompts?.find(p => p.id === plugin.settings.activeSystemPromptId)?.name ?? '';
@@ -426,7 +426,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 							currentLine += 4;
 							currentCh = 0;
 						}
-						if ( isContentFirst  && accumulatedAnswer.length > 0  && !isFirst) {
+						if (!isAnswering && isContentFirst  && accumulatedAnswer.length > 0  && !isFirst) {
 							isContentFirst = false;
 							
 							// 如果之前有输出过 reasoning（也就是当前光标位置已经在思考代码块里），我们需要闭合它；

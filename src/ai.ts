@@ -146,6 +146,11 @@ export async function streamDashScope(
 	// 统一兜底，避免调用方传空字符串时把请求打到无效地址或空模型。
 	const resolvedBaseUrl = baseUrl?.trim() || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
 	const resolvedModel = model?.trim() || 'deepseek-v4-flash';
+	const thinkingOnlyTrueModels = new Set([
+		'qwen3.7-max-2026-05-17',
+		'qwen3.7-max-preview',
+		'qwen3.7-max-2026-05-20',
+	]);
 	// requestMessages 会被直接发送给模型，同时也会原样写入日志文件。
 	const requestMessages: AIMessage[] = [];
 	// 这两个累积变量既用于最终日志落盘，也能帮助定位流式响应中断在什么阶段。
@@ -199,14 +204,19 @@ export async function streamDashScope(
 			{ role: 'user', content: query }
 		);
 
-		// 构造请求体。遇到部分模型严格限制参数时（如 qwen3.7 报错 enable_thinking 仅限 True），
-		// 当 user 没有开启思考模式时，直接将其从参数中移除。
+		// 构造请求体。
+		// 这三个 qwen3.7 模型仅接受 enable_thinking=true；当开关为 false 时必须省略该字段。
+		// 其它模型保持原有行为，按当前布尔值正常传递。
 		const requestBody: any = {
 			model: resolvedModel,
 			messages: requestMessages,
 			stream: true
 		};
-		if (enableThinking) {
+		if (thinkingOnlyTrueModels.has(resolvedModel)) {
+			if (enableThinking) {
+				requestBody.enable_thinking = true;
+			}
+		} else {
 			requestBody.enable_thinking = enableThinking;
 		}
 		
