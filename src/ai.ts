@@ -154,8 +154,6 @@ export async function streamDashScope(
 	let suppressedReasoningChunkCount = 0;
 	let suppressedReasoningCharCount = 0;
 	const requestStartedAt = Date.now();
-	let requestAttemptCount = 0;
-	let retriedWithoutEnableThinking = false;
 	let responseHeadersAt: number | null = null;
 	let firstStreamChunkAt: number | null = null;
 	let firstReasoningAt: number | null = null;
@@ -172,7 +170,6 @@ export async function streamDashScope(
 			label,
 			model: resolvedModel,
 			enableThinking,
-			requestAttemptCount,
 			elapsedMs: Date.now() - requestStartedAt,
 			...extra,
 		});
@@ -225,51 +222,29 @@ export async function streamDashScope(
 			{ role: 'user', content: query }
 		);
 
-		const buildRequestBody = (includeEnableThinking: boolean) => {
-			const requestBody: any = {
-				model: resolvedModel,
-				messages: requestMessages,
-				stream: true,
-			};
-
-			if (includeEnableThinking) {
-				requestBody.enable_thinking = enableThinking;
-			}
-
-			return requestBody;
+		// 构造请求体。遇到部分模型严格限制参数时（如 qwen3.7 报错 enable_thinking 仅限 True），
+		// 当 user 没有开启思考模式时，直接将其从参数中移除。
+		const requestBody: any = {
+			model: resolvedModel,
+			messages: requestMessages,
+			stream: true
 		};
+		if (enableThinking) {
+			requestBody.enable_thinking = true;
+		}
 
-		const sendRequest = async (includeEnableThinking: boolean) => {
-			requestAttemptCount += 1;
-			const requestBody = buildRequestBody(includeEnableThinking);
-			logTiming("request_sent", {
-				includeEnableThinking,
-				requestEnableThinkingValue: includeEnableThinking ? enableThinking : "omitted",
-			});
-
-			const response = await window.fetch(resolvedBaseUrl, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${apiKey}`
-				},
-				body: JSON.stringify(requestBody)
-			});
-
-			responseHeadersAt = Date.now();
-			logTiming("response_headers", {
-				status: response.status,
-				ok: response.ok,
-				includeEnableThinking,
-			});
-
-			return { response, includeEnableThinking };
-		};
-
-		// 默认显式传递 false，避免部分模型在省略该参数时回退到默认思考路径。
-		// 对于 qwen3.7 这类明确拒绝 false 的模型，再自动降级为省略该参数重试一次。
-		let { response } = await sendRequest(true);
+		// 使用浏览器原生 fetch 发起流式请求。
+		// 当前接口遵循 OpenAI-compatible 格式，因此 body 中使用 messages / stream / model 等字段。
+		const response = await window.fetch(resolvedBaseUrl, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': `Bearer ${apiKey}`
+			},
+			body: JSON.stringify(requestBody)
+		});
 		responseHeadersAt = Date.now();
+		logTiming("response_headers", { status: response.status, ok: response.ok });
 
 		if (!response.ok) {
 			let errorDetail = "";
@@ -279,30 +254,7 @@ export async function streamDashScope(
 			} catch (e) {
 				errorDetail = await response.text();
 			}
-
-			const shouldRetryWithoutEnableThinking =
-				!enableThinking &&
-				requestAttemptCount === 1 &&
-				/error|invalid_parameter_error|enable_thinking/i.test(errorDetail) &&
-				/restricted to True|only true|仅限\s*True/i.test(errorDetail);
-
-			if (shouldRetryWithoutEnableThinking) {
-				retriedWithoutEnableThinking = true;
-				logTiming("retry_without_enable_thinking", { errorDetail });
-				({ response } = await sendRequest(false));
-				if (!response.ok) {
-					let retryErrorDetail = "";
-					try {
-						const retryErrorJson = await response.json();
-						retryErrorDetail = JSON.stringify(retryErrorJson);
-					} catch (e) {
-						retryErrorDetail = await response.text();
-					}
-					throw new Error(`API 请求失败: ${response.status} ${response.statusText} - ${retryErrorDetail}`);
-				}
-			} else {
 			throw new Error(`API 请求失败: ${response.status} ${response.statusText} - ${errorDetail}`);
-			}
 		}
 
 		if (!response.body) {
@@ -408,8 +360,6 @@ export async function streamDashScope(
 			},
 			response: {
 				timings: {
-					requestAttemptCount,
-					retriedWithoutEnableThinking,
 					responseHeadersMs: elapsedMs(responseHeadersAt),
 					firstStreamChunkMs: elapsedMs(firstStreamChunkAt),
 					firstReasoningMs: elapsedMs(firstReasoningAt),
@@ -441,8 +391,6 @@ export async function streamDashScope(
 			},
 			response: {
 				timings: {
-					requestAttemptCount,
-					retriedWithoutEnableThinking,
 					responseHeadersMs: elapsedMs(responseHeadersAt),
 					firstStreamChunkMs: elapsedMs(firstStreamChunkAt),
 					firstReasoningMs: elapsedMs(firstReasoningAt),

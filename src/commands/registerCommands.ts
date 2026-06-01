@@ -315,56 +315,58 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			const prefixText = wikiLinkLineCount > 0
 				? `\n---\n${wikiLinksText}\n${metaBlock}\n`
 				: `\n---\n${metaBlock}\n`;
+			
+			// 开启 thinking 时在 meta 块之后预留“思考过程”代码块，否则直接进入答案区。
+			if (enableThinking) {
+				editor.replaceRange(`${prefixText}\`\`\`text\n思考过程...\n`, {
+					line: cursor.line,
+					ch: newLineLength,
+				});
+			} else {
+				editor.replaceRange(prefixText, {
+					line: cursor.line,
+					ch: newLineLength,
+				});
+			}
 
-			const outputStart = { line: cursor.line, ch: newLineLength };
-			let outputEnd = { ...outputStart };
-			let reasoningText = "";
-			let answerText = "";
-			let streamCompleted = false;
+			// 预设光标向下偏移量以匹配初始插入内容
+			// 若有 wikiLinksText -> wikiLinkLineCount + 1行
+			// metaBlock -> 约 4-6 行不等，按 '\n' 的个数计算
+			const metaLineCount = metaParts.length + 1;
+			const prefixLineCount = 3 + (wikiLinkLineCount > 0 ? wikiLinkLineCount + 1 : 0) + metaLineCount;
 
-			const getEndPosition = (start: { line: number; ch: number }, text: string) => {
-				const lines = text.split("\n");
-				const lastLine = lines[lines.length - 1] ?? "";
-				return {
-					line: start.line + lines.length - 1,
-					ch: lines.length === 1 ? start.ch + lastLine.length : lastLine.length,
-				};
-			};
+			let currentLine = cursor.line + prefixLineCount + (enableThinking ? 1 : -1);
+			let currentCh = 0;
+			let isAnswering = !enableThinking;
+			let accumulatedAnswer = "";
 
-			const buildOutput = () => {
-				const parts: string[] = [prefixText];
-				if (enableThinking) {
-					const thinkingBody = reasoningText || "思考过程...";
-					parts.push(`\`\`\`text\n${thinkingBody}\n\`\`\`\n\n`);
-					parts.push("---\n\n");
+			// 统一的流式写入函数，兼容 CodeMirror 和普通 editor 接口。
+			const insertStreamChunk = (text: string) => {
+				const cm = (editor as any).cm;
+				if (cm) {
+					const from = editor.posToOffset({ line: currentLine, ch: currentCh });
+					cm.dispatch({
+						changes: { from, insert: text },
+						scrollIntoView: false,
+					});
+				} else {
+					editor.replaceRange(text, { line: currentLine, ch: currentCh });
 				}
-				parts.push(answerText);
-				if (streamCompleted) {
-					parts.push("\n\n---\n");
-				}
-				return parts.join("");
 			};
 
-			const renderOutput = () => {
-				const nextText = buildOutput();
-				editor.replaceRange(nextText, outputStart, outputEnd);
-				outputEnd = getEndPosition(outputStart, nextText);
-			};
-
+			// 流式结束后把光标定位到最终输出末尾。
 			const setStreamCursor = () => {
 				const cm = (editor as any).cm;
 				if (cm) {
-					const anchor = editor.posToOffset(outputEnd);
+					const anchor = editor.posToOffset({ line: currentLine, ch: currentCh });
 					cm.dispatch({
 						selection: { anchor, head: anchor },
 						scrollIntoView: false,
 					});
 				} else {
-					editor.setCursor(outputEnd);
+					editor.setCursor({ line: currentLine, ch: currentCh });
 				}
 			};
-
-			renderOutput();
 
 			// 发起 AI 流式请求，并把 reasoning/content 分片实时写回编辑器。
 			await streamDashScope(
@@ -376,26 +378,58 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				enableThinking,
 				{
 					onReasoning: (chunk) => {
+						// thinking 模式下，先把模型的思考内容写进代码块。
 						if (!enableThinking) {
 							return;
 						}
 
-						reasoningText += chunk;
-						renderOutput();
+						insertStreamChunk(chunk);
+						const lines = chunk.split("\n");
+						if (lines.length > 1) {
+							currentLine += lines.length - 1;
+							const lastLine = lines[lines.length - 1];
+							currentCh = lastLine ? lastLine.length : 0;
+						} else {
+							currentCh += chunk.length;
+						}
 					},
 					onContent: (chunk) => {
-						answerText += chunk;
-						renderOutput();
+						// 收集最终回答正文，并在首个正文分片到来时关闭思考区、切换到答案区。
+						accumulatedAnswer += chunk;
+
+						if (!isAnswering && enableThinking) {
+							isAnswering = true;
+							
+							// 如果之前有输出过 reasoning（也就是当前光标位置已经在思考代码块里），我们需要闭合它；
+							// 如果模型压根就没吐出任何 onReasoning 片段（如 qwen3.7-max），直接就来了 content（比如自己吐出了 "思考过程：... \n\n 正文..."），
+							// 我们同样需要把最开始预留打开的 ```text 思考过程\n 给闭合掉。
+							const thinkingTransition = `\n\`\`\`\n\n---\n\n`;
+							insertStreamChunk(thinkingTransition);
+							currentLine += 4;
+							currentCh = 0;
+						}
+
+						insertStreamChunk(chunk);
+						const lines = chunk.split("\n");
+						if (lines.length > 1) {
+							currentLine += lines.length - 1;
+							const lastLine = lines[lines.length - 1];
+							currentCh = lastLine ? lastLine.length : 0;
+						} else {
+							currentCh += chunk.length;
+						}
 					},
 					onError: (error) => {
 						new Notice("AI Request Errored: " + error.message);
 					},
 					onComplete: () => {
-						streamCompleted = true;
-						renderOutput();
+						// 请求结束后补齐分隔线，并把问答写入短期记忆和历史文件。
+						insertStreamChunk("\n\n---\n");
+						currentLine += 3;
+						currentCh = 0;
 						setStreamCursor();
-						void plugin.memoryManager.recordTurn(question, answerText);
-						void plugin.memoryManager.appendToHistory(question, answerText, wikiLinksText);
+						void plugin.memoryManager.recordTurn(question, accumulatedAnswer);
+							void plugin.memoryManager.appendToHistory(question, accumulatedAnswer, wikiLinksText);
 					},
 				},
 				plugin.settings.aiBaseUrl,
