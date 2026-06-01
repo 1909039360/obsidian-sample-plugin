@@ -1,4 +1,4 @@
-import { StateEffect } from "@codemirror/state";
+import { StateEffect, Annotation } from "@codemirror/state";
 import { App, Editor, MarkdownView, Notice } from "obsidian";
 import { streamDashScope } from "../ai";
 import { AI_TASK_VIEW_TYPE, AITaskView } from "../aiTaskView";
@@ -7,6 +7,7 @@ import { DocumentContextStore } from "../documentContext/store";
 import { MemoryManager } from "../memory/memoryManager";
 import { CodeBlockSelectionStore, createCodeBlockContext } from "../selectionStore";
 import { MyPluginSettings } from "../settings";
+import { aiStreamAnnotation } from "../editorCodeBlockCollapser";
 
 interface CommandDefinition {
 	id: string;
@@ -234,6 +235,14 @@ export function registerPluginCommands(plugin: CommandHost): void {
 		name: "AI Completion (DashScope)",
 		hotkeys: [{ modifiers: ["Mod"], key: "Enter" }],
 		editorCallback: async (editor: Editor, view: MarkdownView) => {
+			const tStart = Date.now();
+			let tLast = tStart;
+			const logTime = (step: string) => {
+				const now = Date.now();
+				console.log(`[AI-Perf] ${step}: ${now - tLast}ms (Total: ${now - tStart}ms)`);
+				tLast = now;
+			};
+
 			// 从当前行提取 //问题// 形式的提问内容。
 			const cursor = editor.getCursor();
 			const line = editor.getLine(cursor.line);
@@ -248,6 +257,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				new Notice("当前视图没有关联的 Markdown 文件。");
 				return;
 			}
+			logTime("Regex match completed");
 
 			// 收集两类上下文：显式选中的活动上下文，以及当前行内 @doc 解析出的文档上下文。
 			const question = match[1].trim();
@@ -263,6 +273,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				plugin.documentContextStore.getSelectedItems(),
 				inlineDocumentContexts
 			);
+			logTime("resolveDocumentContextsFromLine completed");
 
 			const hasExplicitDocContexts = documentContexts.length > 0;
 			const shouldPersistDocumentContexts = hasExplicitDocContexts;
@@ -274,6 +285,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				plugin.settings.lastDocumentContextSnapshot = documentContexts.map((item) => ({ ...item }));
 				await plugin.saveSettings();
 			}
+			logTime("plugin.saveSettings completed");
 
 			// 将原问题行替换成 Markdown 标题，作为本次 AI 问答的标题。
 			const normalizedQuestion = stripDocumentMarkersFromText(line.substring(0, match.index) + match[1]);
@@ -339,34 +351,71 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			let currentCh = 0;
 			let isAnswering = !enableThinking;
 			let accumulatedAnswer = "";
+			let currentOffset = editor.posToOffset({ line: currentLine, ch: currentCh });
+
+			// RAF 批量写入：把同一帧内所有到来的流式分片攒成一次 dispatch，
+			// 将每秒 100+ 次 dispatch 压缩到 ≤60 次，让浏览器有时间在帧间渲染。
+			let pendingText = "";
+			let rafId: number | null = null;
+
+			const doDispatch = (text: string) => {
+				const cm = (editor as any).cm;
+				if (cm) {
+					cm.dispatch({
+						changes: { from: currentOffset, insert: text },
+						scrollIntoView: false,
+						annotations: aiStreamAnnotation.of(true),
+					});
+					currentOffset += text.length;
+				} else {
+					editor.replaceRange(text, { line: currentLine, ch: currentCh });
+				}
+			};
+
+			const flushPending = () => {
+				rafId = null;
+				if (!pendingText) return;
+				const text = pendingText;
+				pendingText = "";
+				doDispatch(text);
+			};
 
 			// 统一的流式写入函数，兼容 CodeMirror 和普通 editor 接口。
+			// cm 路径：将 text 追加到帧缓冲，由 requestAnimationFrame 统一刷写；
+			// 非 cm 路径（极少触发）：仍立即写入。
 			const insertStreamChunk = (text: string) => {
 				const cm = (editor as any).cm;
 				if (cm) {
-					const from = editor.posToOffset({ line: currentLine, ch: currentCh });
-					cm.dispatch({
-						changes: { from, insert: text },
-						scrollIntoView: false,
-					});
+					pendingText += text;
+					if (rafId === null) {
+						rafId = requestAnimationFrame(flushPending);
+					}
 				} else {
 					editor.replaceRange(text, { line: currentLine, ch: currentCh });
 				}
 			};
 
 			// 流式结束后把光标定位到最终输出末尾。
+			// 先取消挂起的 RAF 并立即将剩余文本刷写入编辑器，再定位光标。
 			const setStreamCursor = () => {
+				if (rafId !== null) {
+					cancelAnimationFrame(rafId);
+				}
+				flushPending();
 				const cm = (editor as any).cm;
 				if (cm) {
-					const anchor = editor.posToOffset({ line: currentLine, ch: currentCh });
 					cm.dispatch({
-						selection: { anchor, head: anchor },
+						selection: { anchor: currentOffset, head: currentOffset },
 						scrollIntoView: false,
 					});
 				} else {
 					editor.setCursor({ line: currentLine, ch: currentCh });
 				}
 			};
+
+			let firstTokenReceived = false;
+			let firstContentReceived = false;
+			logTime("Pre-flight sync and UI update completed, calling streamDashScope...");
 
 			// 发起 AI 流式请求，并把 reasoning/content 分片实时写回编辑器。
 			await streamDashScope(
@@ -378,6 +427,10 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				enableThinking,
 				{
 					onReasoning: (chunk) => {
+						if (!firstTokenReceived) {
+							firstTokenReceived = true;
+							logTime("[Reasoning] First reasoning token received");
+						}
 						// thinking 模式下，先把模型的思考内容写进代码块。
 						if (!enableThinking) {
 							return;
@@ -394,6 +447,14 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						}
 					},
 					onContent: (chunk) => {
+						if (!firstTokenReceived) {
+							firstTokenReceived = true;
+							logTime("[Content] First content token received (no reasoning phase)");
+						}
+						if (!firstContentReceived) {
+							firstContentReceived = true;
+							logTime("[Content] First content token received");
+						}
 						// 收集最终回答正文，并在首个正文分片到来时关闭思考区、切换到答案区。
 						accumulatedAnswer += chunk;
 
