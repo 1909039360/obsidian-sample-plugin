@@ -1,4 +1,4 @@
-import { Annotation, Extension, RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
+import { Extension, RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { Notice, editorInfoField, editorLivePreviewField, setIcon } from "obsidian";
 import { MyPluginSettings } from "./settings";
@@ -6,8 +6,6 @@ import {
 	CodeBlockSelectionStore,
 	createCodeBlockContext,
 } from "./selectionStore";
-
-export const aiStreamAnnotation = Annotation.define<boolean>();
 
 interface CodeBlockPosition {
 	startPos: number;
@@ -303,15 +301,7 @@ function copyWithExecCommand(text: string): boolean {
 	return copied;
 }
 
-const codeBlockPositionsCache = new WeakMap<any, CodeBlockPosition[]>();
-
 function findCodeBlockPositions(state: EditorView["state"]): CodeBlockPosition[] {
-	const doc = state.doc;
-	const cached = codeBlockPositionsCache.get(doc);
-	if (cached) {
-		return cached;
-	}
-
 	const positions: CodeBlockPosition[] = [];
 	let openFence:
 		| {
@@ -324,46 +314,46 @@ function findCodeBlockPositions(state: EditorView["state"]): CodeBlockPosition[]
 		  }
 		| null = null;
 
-	let currentPos = 0;
-	let lineNumber = 1;
+	for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
+		const line = state.doc.line(lineNumber);
+		const match = line.text.match(CODE_FENCE_PATTERN);
 
-	for (const lineText of doc.iterLines()) {
-		const match = lineText.match(CODE_FENCE_PATTERN);
-
-		if (match) {
-			const marker = match[1];
-			if (marker) {
-				const lineFrom = currentPos;
-				const lineTo = currentPos + lineText.length;
-
-				if (!openFence) {
-					openFence = {
-						marker: marker.charAt(0),
-						startPos: lineFrom,
-						startLineTo: lineTo,
-						startLine: lineNumber - 1,
-						endLine: lineNumber - 1,
-						language: (match[2] ?? "").trim(),
-					};
-				} else if (marker.charAt(0) === openFence.marker) {
-					positions.push({
-						startPos: openFence.startPos,
-						endPos: lineTo,
-						startLineTo: openFence.startLineTo,
-						startLine: openFence.startLine,
-						endLine: lineNumber - 1,
-						language: openFence.language,
-					});
-					openFence = null;
-				}
-			}
+		if (!match) {
+			continue;
 		}
 
-		currentPos += lineText.length + 1;
-		lineNumber += 1;
+		const marker = match[1];
+		if (!marker) {
+			continue;
+		}
+
+		if (!openFence) {
+			openFence = {
+				marker: marker.charAt(0),
+				startPos: line.from,
+				startLineTo: line.to,
+				startLine: line.number - 1,
+				endLine: line.number - 1,
+				language: (match[2] ?? "").trim(),
+			};
+			continue;
+		}
+
+		if (marker.charAt(0) !== openFence.marker) {
+			continue;
+		}
+
+		positions.push({
+			startPos: openFence.startPos,
+			endPos: line.to,
+			startLineTo: openFence.startLineTo,
+			startLine: openFence.startLine,
+			endLine: line.number - 1,
+			language: openFence.language,
+		});
+		openFence = null;
 	}
 
-	codeBlockPositionsCache.set(doc, positions);
 	return positions;
 }
 
@@ -463,11 +453,6 @@ function createFoldField(
 			return builder.finish();
 		},
 		update(folds, transaction) {
-			// AI 流式传输时，跳过所有效果处理，只做偏移映射，避免 findCodeBlockPositions 被频繁触发
-			if (transaction.annotation(aiStreamAnnotation)) {
-				return folds.map(transaction.changes);
-			}
-
 			folds = folds.map(transaction.changes);
 
 			for (const effect of transaction.effects) {
@@ -596,17 +581,7 @@ export function createEditorCodeBlockCollapserExtension(
 		create(state) {
 			return buildToggleDecorations(state, foldField, selectionStore);
 		},
-		update(value, transaction) {
-			// 如果是 AI 流式传输期间的修改，为了避免任何卡顿，直接通过 mapping 映射旧的 decorations，复杂度位 O(log N)
-			if (transaction.annotation(aiStreamAnnotation)) {
-				return value.map(transaction.changes);
-			}
-
-			// 如果文档未发生修改并且没有状态效果（例如纯粹的选区变化、滚动、焦点等极频繁的微小事务），也直接复用旧的，不做任何解析
-			if (!transaction.docChanged && transaction.effects.length === 0) {
-				return value;
-			}
-
+		update(_value, transaction) {
 			return buildToggleDecorations(transaction.state, foldField, selectionStore);
 		},
 		provide: (field) => EditorView.decorations.from(field),

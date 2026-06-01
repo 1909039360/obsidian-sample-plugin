@@ -199,35 +199,16 @@ export async function streamDashScope(
 			{ role: 'user', content: query }
 		);
 
-		// 构造请求体。
-		// enable_thinking 参数的处理策略：
-		//
-		// 背景：DashScope 上部分模型（如 qwen3.7-* 系列）只接受 enable_thinking: true，
-		//   若传入 false 会立即返回 400 Bad Request。
-		//   而另一些模型（如 deepseek-v4-*、qwen3.5-*、qwen3.6-* 等）若不显式传 false，
-		//   则默认开启内部推理，导致用户关闭思考模式后仍等待 3~5 秒才出字。
-		//
-		// 策略：
-		//   1. 开启思考模式：始终发送 enable_thinking: true（所有支持该参数的模型都接受）。
-		//   2. 关闭思考模式 + 模型名匹配 "仅支持 true" 的已知模式：不传该参数（避免 400）。
-		//   3. 关闭思考模式 + 其他模型：显式发送 enable_thinking: false（避免模型默认推理）。
-		//
-		// 已知「不支持 enable_thinking: false」的模型特征：qwen3.7 系列。
-		const modelOnlySupportsTrueThinking = /qwen3\.7/i.test(resolvedModel);
-
+		// 构造请求体。遇到部分模型严格限制参数时（如 qwen3.7 报错 enable_thinking 仅限 True），
+		// 当 user 没有开启思考模式时，直接将其从参数中移除。
 		const requestBody: any = {
 			model: resolvedModel,
 			messages: requestMessages,
-			stream: true,
+			stream: true
 		};
-
 		if (enableThinking) {
 			requestBody.enable_thinking = true;
-		} else if (!modelOnlySupportsTrueThinking) {
-			// 对支持完整开关的模型，显式关闭，防止默认走推理模式
-			requestBody.enable_thinking = false;
 		}
-		// 对 qwen3.7 等仅支持 true 的模型，不传该参数（模型默认行为即推理，用户需知晓）
 
 		// 使用浏览器原生 fetch 发起流式请求。
 		// 当前接口遵循 OpenAI-compatible 格式，因此 body 中使用 messages / stream / model 等字段。
@@ -305,22 +286,6 @@ export async function streamDashScope(
 					console.error("解析流式 JSON 数据失败", e, dataStr);
 				}
 			}
-
-			// === 关键：让出宏任务队列，打破微任务饥饿 ===
-			//
-			// async/await 的 continuation 以「微任务」入队，其优先级高于 requestAnimationFrame。
-			// 当模型关闭思考模式时，内容 token 高速输出，多个 token 已在 TCP 缓冲区中，
-			// reader.read() 会立刻以微任务方式解析，一直循环——微任务队列始终非空，
-			// RAF 被持续饿死，导致所有文字在流结束后才一次性刷出（3-5 秒空白）。
-			//
-			// 开启思考模式时，推理 token 逐字生成，reader.read() 会真实挂起等待网络数据，
-			// 队列在挂起时清空，RAF 得以执行，文字因此可以逐帧流式显示。
-			//
-			// 修复：每轮数据处理完毕后插入一次 setTimeout(0)，将「继续循环」放入宏任务队列，
-			// 使浏览器在执行下一轮 reader.read() 之前先走完：
-			//   微任务清空 → RAF 触发 → flushPending → cm.dispatch → 浏览器绘制帧
-			// 副作用：每轮增加约 0-4ms 宏任务等待，对典型响应（50-100 个网络分段）总延迟 < 400ms。
-			await new Promise<void>(resolve => setTimeout(resolve, 0));
 		}
 
 		// 成功结束后，把请求参数和完整响应落日志，方便对照线上问题。
