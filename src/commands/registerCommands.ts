@@ -396,8 +396,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 					onContent: (chunk) => {
 						// 收集最终回答正文，并在首个正文分片到来时关闭思考区、切换到答案区。
 						accumulatedAnswer += chunk;
-
-						if (!isAnswering && enableThinking) {
+						if (!isAnswering && enableThinking && accumulatedAnswer.length > 0 ) {
 							isAnswering = true;
 							
 							// 如果之前有输出过 reasoning（也就是当前光标位置已经在思考代码块里），我们需要闭合它；
