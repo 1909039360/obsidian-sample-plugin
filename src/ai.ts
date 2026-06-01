@@ -151,29 +151,6 @@ export async function streamDashScope(
 	// 这两个累积变量既用于最终日志落盘，也能帮助定位流式响应中断在什么阶段。
 	let accumulatedReasoning = "";
 	let accumulatedContent = "";
-	let suppressedReasoningChunkCount = 0;
-	let suppressedReasoningCharCount = 0;
-	const requestStartedAt = Date.now();
-	let responseHeadersAt: number | null = null;
-	let firstStreamChunkAt: number | null = null;
-	let firstReasoningAt: number | null = null;
-	let firstContentAt: number | null = null;
-	let streamChunkCount = 0;
-	let sseEventCount = 0;
-
-	const elapsedMs = (timestamp: number | null): number | null => {
-		return timestamp === null ? null : timestamp - requestStartedAt;
-	};
-
-	const logTiming = (label: string, extra?: Record<string, unknown>) => {
-		console.debug("[streamDashScope]", {
-			label,
-			model: resolvedModel,
-			enableThinking,
-			elapsedMs: Date.now() - requestStartedAt,
-			...extra,
-		});
-	};
 
 	try {
 		// 先分别格式化两类上下文，再组合成一个总上下文字符串。
@@ -243,8 +220,6 @@ export async function streamDashScope(
 			},
 			body: JSON.stringify(requestBody)
 		});
-		responseHeadersAt = Date.now();
-		logTiming("response_headers", { status: response.status, ok: response.ok });
 
 		if (!response.ok) {
 			let errorDetail = "";
@@ -272,13 +247,6 @@ export async function streamDashScope(
 		while (true) {
 			const { done, value } = await reader.read();
 			if (done) break;
-			streamChunkCount += 1;
-			if (firstStreamChunkAt === null) {
-				firstStreamChunkAt = Date.now();
-				logTiming("first_stream_chunk", {
-					chunkBytes: value?.byteLength ?? 0,
-				});
-			}
 
 			// 追加本次收到的数据，并按换行拆分成若干 SSE 事件行。
 			buffer += decoder.decode(value, { stream: true });
@@ -290,7 +258,6 @@ export async function streamDashScope(
 				const trimmedLine = line.trim();
 				// SSE 中只处理 data: 开头的行，其它空行或控制行直接跳过。
 				if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
-				sseEventCount += 1;
 
 				const dataStr = trimmedLine.slice("data: ".length);
 				// OpenAI-compatible 流的结束标记。
@@ -302,40 +269,14 @@ export async function streamDashScope(
 						const delta = data.choices[0].delta;
 						
 						// 某些模型会把“思考过程”放在 reasoning_content 字段里；
-						// 但本插件把“是否开启 thinking”定义为：
-						// - 开：允许显示并落日志
-						// - 关：即便服务端仍返回 reasoning_content，也只做计数诊断，不向上游透出
+						// 上层可以按需决定是否显示这部分内容。
 						if (delta.reasoning_content !== undefined && delta.reasoning_content !== null) {
-							const reasoningChunk = String(delta.reasoning_content);
-							if (enableThinking) {
-								if (firstReasoningAt === null) {
-									firstReasoningAt = Date.now();
-									logTiming("first_reasoning", {
-										chunkLength: reasoningChunk.length,
-									});
-								}
-								accumulatedReasoning += reasoningChunk;
-								callbacks.onReasoning(reasoningChunk);
-							} else {
-								suppressedReasoningChunkCount += 1;
-								suppressedReasoningCharCount += reasoningChunk.length;
-								if (firstReasoningAt === null) {
-									firstReasoningAt = Date.now();
-									logTiming("suppressed_reasoning", {
-										chunkLength: reasoningChunk.length,
-									});
-								}
-							}
+							accumulatedReasoning += delta.reasoning_content;
+							callbacks.onReasoning(delta.reasoning_content);
 						}
 
 						// 正常回答正文通常在 content 字段里，直接回调给编辑器流式渲染。
 						if (delta.content !== undefined && delta.content !== null) {
-							if (firstContentAt === null) {
-								firstContentAt = Date.now();
-								logTiming("first_content", {
-									chunkLength: String(delta.content).length,
-								});
-							}
 							accumulatedContent += delta.content;
 							callbacks.onContent(delta.content);
 						}
@@ -359,16 +300,6 @@ export async function streamDashScope(
 				messages: requestMessages,
 			},
 			response: {
-				timings: {
-					responseHeadersMs: elapsedMs(responseHeadersAt),
-					firstStreamChunkMs: elapsedMs(firstStreamChunkAt),
-					firstReasoningMs: elapsedMs(firstReasoningAt),
-					firstContentMs: elapsedMs(firstContentAt),
-					streamChunkCount,
-					sseEventCount,
-					suppressedReasoningChunkCount,
-					suppressedReasoningCharCount,
-				},
 				reasoning: accumulatedReasoning,
 				content: accumulatedContent,
 			},
@@ -390,16 +321,6 @@ export async function streamDashScope(
 				messages: requestMessages,
 			},
 			response: {
-				timings: {
-					responseHeadersMs: elapsedMs(responseHeadersAt),
-					firstStreamChunkMs: elapsedMs(firstStreamChunkAt),
-					firstReasoningMs: elapsedMs(firstReasoningAt),
-					firstContentMs: elapsedMs(firstContentAt),
-					streamChunkCount,
-					sseEventCount,
-					suppressedReasoningChunkCount,
-					suppressedReasoningCharCount,
-				},
 				reasoning: accumulatedReasoning,
 				content: accumulatedContent,
 			},
