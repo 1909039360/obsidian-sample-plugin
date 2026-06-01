@@ -1,6 +1,8 @@
 import { App, Editor, EditorPosition, EditorSuggest, EditorSuggestContext, EditorSuggestTriggerInfo, TFile } from 'obsidian';
+import { MyPluginSettings } from './settings';
 
-const COMMON_PROMPTS = [
+export const BUILTIN_PROMPTS = [
+	"翻译成中文",
 	"总结这段文字",
 	"解释这段代码",
 	"重构这段代码",
@@ -12,14 +14,28 @@ const COMMON_PROMPTS = [
 ];
 
 export class AIPromptSuggest extends EditorSuggest<string> {
-	constructor(app: App) {
+	private readonly getSettings: () => MyPluginSettings;
+	// Detect a trailing @marker in normal editor text so prompt suggestions yield to document-context suggestions.
+	private static readonly DOCUMENT_TRIGGER_PATTERN = /(?:^|\s|\]|\/\/)@([^\s@]*)$/;
+	// Detect a trailing @marker inside //...// inline prompts for the same handoff behavior.
+	private static readonly INLINE_PROMPT_DOCUMENT_TRIGGER_PATTERN = /\/\/.*@([^\s@]*)$/;
+
+	constructor(app: App, getSettings: () => MyPluginSettings) {
 		super(app);
+		this.getSettings = getSettings;
 	}
 
 	onTrigger(cursor: EditorPosition, editor: Editor, file: TFile): EditorSuggestTriggerInfo | null {
 		const line = editor.getLine(cursor.line);
 		const prefix = line.substring(0, cursor.ch);
 		const suffix = line.substring(cursor.ch);
+
+		if (
+			prefix.match(AIPromptSuggest.DOCUMENT_TRIGGER_PATTERN) ||
+			(suffix.startsWith('//') && prefix.match(AIPromptSuggest.INLINE_PROMPT_DOCUMENT_TRIGGER_PATTERN))
+		) {
+			return null;
+		}
 
 		// 匹配：游标前是以 // 开始，且中间不包含 /
 		const match = prefix.match(/\/\/([^/]*)$/);
@@ -37,13 +53,21 @@ export class AIPromptSuggest extends EditorSuggest<string> {
 	}
 
 	getSuggestions(context: EditorSuggestContext): string[] {
+		const customPrompts = this.getSettings().customPrompts ?? [];
+		// 自定义提示词排在前面，再跟内置提示词（去重）
+		const customSet = new Set(customPrompts);
+		const allPrompts = [
+			...customPrompts,
+			...BUILTIN_PROMPTS.filter(p => !customSet.has(p)),
+		];
+
 		const query = context.query.toLowerCase();
 		// 如果用户没输入任何东西（刚打出 //// 的时候），显示全部
 		if (!query) {
-			return COMMON_PROMPTS;
+			return allPrompts;
 		}
 		// 否则根据输入进行过滤
-		return COMMON_PROMPTS.filter(prompt => prompt.toLowerCase().includes(query));
+		return allPrompts.filter(prompt => prompt.toLowerCase().includes(query));
 	}
 
 	renderSuggestion(value: string, el: HTMLElement): void {
@@ -56,6 +80,7 @@ export class AIPromptSuggest extends EditorSuggest<string> {
 			const { editor, start, end } = this.context;
 			// 用选中的文字替换掉原来的查询输入
 			editor.replaceRange(value, start, end);
+			editor.setCursor({ line: start.line, ch: start.ch + value.length });
 		}
 	}
 }

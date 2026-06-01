@@ -152,21 +152,23 @@ If your plugin does not need CSS, delete this file.
 
 .cbf-editor-toggle-host {
 	position: absolute;
-	right: 12px;
-	top: 50%;
+	right: 1px;
+	top:90%;
 	transform: translateY(-50%);
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	z-index: 5;
+	z-index: 50;
 }
 
-.cbf-editor-select-toggle {
+.cbf-editor-select-toggle,
+.cbf-editor-toggle,
+.cbf-editor-copy-toggle {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 24px;
-	height: 24px;
+	width: 26px;
+	height: 26px;
 	padding: 0;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 4px;
@@ -179,26 +181,9 @@ If your plugin does not need CSS, delete this file.
 		border-color 120ms ease, box-shadow 120ms ease;
 }
 
-.cbf-editor-toggle {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
-	padding: 0;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 4px;
-	background: var(--background-secondary);
-	color: var(--text-muted);
-	cursor: pointer;
-	line-height: 1;
-	box-shadow: 0 2px 4px rgba(180, 150, 255, 0.25);
-	transition: background-color 120ms ease, color 120ms ease,
-		border-color 120ms ease;
-}
-
 .cbf-editor-toggle:hover,
-.cbf-editor-select-toggle:hover {
+.cbf-editor-select-toggle:hover,
+.cbf-editor-copy-toggle:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
 	box-shadow: 0 2px 6px rgba(180, 150, 255, 0.4);
@@ -285,4 +270,315 @@ If your plugin does not need CSS, delete this file.
 /* 折叠时隐藏代码内容 */
 .cbf-wrapper.cbf-collapsed pre {
 	display: none;
+}
+
+/* ── 设置页样式 ─────────────────────────────────────────────── */
+
+/* API base URL 输入框宽度 */
+.cbf-wide-input {
+	width: 100%;
+}
+
+/* 自定义提示词文本区域 */
+.cbf-prompts-textarea {
+	width: 100%;
+	font-family: var(--font-monospace);
+	font-size: 0.9em;
+	resize: vertical;
+}
+
+/* ── AI task view 样式 ────────────────────────────────────── */
+
+.ai-task-topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 14px;
+	flex-wrap: wrap;
+}
+
+.ai-task-view-title {
+	margin: 0;
+}
+
+.ai-task-tabs {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	background: var(--background-secondary);
+}
+
+.ai-task-tab {
+	padding: 6px 14px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--text-muted);
+	font-size: 0.9em;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.ai-task-tab:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.ai-task-tab.is-active {
+	background: var(--background-primary);
+	color: var(--text-normal);
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.ai-task-page {
+	display: none;
+	animation: ai-task-page-fade 140ms ease;
+}
+
+.ai-task-page.is-active {
+	display: block;
+}
+
+@keyframes ai-task-page-fade {
+	from {
+		opacity: 0;
+		transform: translateY(3px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.ai-task-toolbar {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 10px;
+	flex-wrap: wrap;
+}
+
+/* Memory toggle button */
+.ai-memory-btn {
+	font-size: 0.82em;
+	padding: 2px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease;
+}
+
+.ai-memory-btn--on {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.ai-memory-btn--off {
+	background-color: var(--background-modifier-error);
+	color: var(--text-on-accent);
+	border-color: var(--background-modifier-error);
+	opacity: 0.85;
+}
+
+/* Thinking toggle button */
+.ai-thinking-btn {
+	font-size: 0.82em;
+	padding: 2px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease;
+}
+
+.ai-thinking-btn--on {
+	background-color: var(--color-orange, #f08c00);
+	color: #fff;
+	border-color: var(--color-orange, #f08c00);
+}
+
+.ai-thinking-btn--off {
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	border-color: var(--background-modifier-border);
+}
+
+.ai-document-context-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.ai-document-context-title {
+	margin: 0;
+}
+
+.ai-document-focus-btn {
+	font-size: 0.8em;
+	padding: 2px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease;
+}
+
+.ai-document-focus-btn--on {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.ai-document-focus-btn--off {
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	border-color: var(--background-modifier-border);
+}
+
+.ai-context-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 4px 8px;
+	margin-bottom: 4px;
+}
+
+.ai-context-history-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 4px 8px;
+	margin-bottom: 4px;
+	opacity: 0.7;
+}
+
+.ai-context-preview {
+	font-size: 0.8em;
+}
+
+.ai-context-divider {
+	margin: 16px 0;
+}
+
+.ai-prompt-divider {
+	margin: 20px 0;
+}
+
+.ai-prompt-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.ai-prompt-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.ai-prompt-section-body {
+	margin-top: 8px;
+}
+
+.ai-prompt-section.is-collapsed .ai-prompt-section-body {
+	display: none;
+}
+
+.ai-prompt-toggle-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ai-prompt-select-row {
+	margin-bottom: 8px;
+}
+
+.ai-prompt-select {
+	width: 70%;
+}
+
+.ai-prompt-delete-btn {
+	margin-left: 8px;
+}
+
+.ai-prompt-name-input {
+	width: 100%;
+	margin-bottom: 4px;
+}
+
+.ai-prompt-content-input {
+	width: 100%;
+	min-height: 80px;
+	resize: vertical;
+}
+
+/* Model selector */
+.ai-model-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+.ai-model-tag {
+	font-size: 0.78em;
+	padding: 3px 10px;
+	border-radius: 12px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+	white-space: nowrap;
+}
+
+.ai-model-tag:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.ai-model-tag.is-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+	font-weight: 600;
+}
+
+/* 将代码块右上角的语言标签（如 TypeScript）移动到最左侧 */
+.markdown-source-view.mod-cm6 .code-block-flair {
+	right: auto !important;
+	top: -10% !important;   
+	left: 5px !important;
+	font-weight: bold;
+	color: #04000a6c;  
+}
+
+.ai-document-context-item {
+	align-items: center;
+}
+
+.ai-document-context-path {
+	display: inline-block;
+	max-width: 100%;
+	word-break: break-word;
+}
+
+.ai-doc-suggest-title {
+	font-weight: 600;
+}
+
+.ai-doc-suggest-desc {
+	display: block;
+	margin-top: 2px;
 }

@@ -1,6 +1,6 @@
 import { Extension, RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, DecorationSet, EditorView, WidgetType } from "@codemirror/view";
-import { editorInfoField, editorLivePreviewField, setIcon } from "obsidian";
+import { Notice, editorInfoField, editorLivePreviewField, setIcon } from "obsidian";
 import { MyPluginSettings } from "./settings";
 import {
 	CodeBlockSelectionStore,
@@ -54,6 +54,9 @@ class FoldToggleWidget extends WidgetType {
 			updateSelectionButtonState(selectButton, selected);
 		});
 		container.appendChild(selectButton);
+
+		const copyButton = createCopyButton(() => getCodeContentForCopy(view, this.block));
+		container.appendChild(copyButton);
 
 		const button = document.createElement("button");
 		button.className = "cbf-editor-toggle";
@@ -134,6 +137,9 @@ class FoldedCodeBlockWidget extends WidgetType {
 		});
 		actions.appendChild(selectButton);
 
+		const copyButton = createCopyButton(() => getCodeContentForCopy(view, this.block));
+		actions.appendChild(copyButton);
+
 		const button = document.createElement("button");
 		button.className = "cbf-editor-toggle is-collapsed";
 		button.type = "button";
@@ -196,6 +202,103 @@ function getCollapsedPreview(view: EditorView, block: CodeBlockPosition): string
 	}
 
 	return codeLines.slice(0, 3).join("\n");
+}
+
+function getCodeContentForCopy(view: EditorView, block: CodeBlockPosition): string {
+	const text = view.state.doc.sliceString(block.startPos, block.endPos);
+	const lines = text.split("\n");
+	if (lines.length === 0) {
+		return "";
+	}
+
+	let start = 0;
+	if (CODE_FENCE_PATTERN.test(lines[0] ?? "")) {
+		start = 1;
+	}
+
+	let end = lines.length;
+	while (end > start && !(lines[end - 1] ?? "").trim()) {
+		end -= 1;
+	}
+
+	if (end > start && /^\s*(`{3,}|~{3,})\s*$/.test(lines[end - 1] ?? "")) {
+		end -= 1;
+	}
+
+	return lines.slice(start, end).join("\n");
+}
+
+function createCopyButton(getCodeContent: () => string): HTMLButtonElement {
+	const button = document.createElement("button");
+	button.className = "clickable-icon cbf-editor-copy-toggle";
+	button.type = "button";
+	button.setAttribute("aria-label", "复制代码块");
+	button.title = "复制代码块";
+
+	const icon = document.createElement("span");
+	icon.className = "cbf-editor-toggle-icon";
+	setIcon(icon, "copy");
+	button.appendChild(icon);
+
+	button.addEventListener("mousedown", (event) => {
+		event.preventDefault();
+	});
+
+	button.addEventListener("click", (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+		void copyCodeToClipboard(getCodeContent());
+
+		setIcon(icon, "check");
+		button.setAttribute("aria-label", "已复制");
+		button.title = "已复制";
+
+		setTimeout(() => {
+			setIcon(icon, "copy");
+			button.setAttribute("aria-label", "复制代码块");
+			button.title = "复制代码块";
+		}, 2000);
+	});
+
+	return button;
+}
+
+async function copyCodeToClipboard(text: string): Promise<void> {
+	if (!text) {
+		new Notice("代码块内容为空");
+		return;
+	}
+
+	let copied = false;
+	try {
+		await navigator.clipboard.writeText(text);
+		copied = true;
+	} catch {
+		copied = copyWithExecCommand(text);
+	}
+
+	new Notice(copied ? "已复制代码块" : "复制失败，请手动复制");
+}
+
+function copyWithExecCommand(text: string): boolean {
+	const textarea = document.createElement("textarea");
+	textarea.value = text;
+	textarea.setAttribute("readonly", "true");
+	textarea.style.position = "fixed";
+	textarea.style.opacity = "0";
+	textarea.style.pointerEvents = "none";
+	document.body.appendChild(textarea);
+	textarea.select();
+
+	let copied = false;
+	try {
+		copied = document.execCommand("copy");
+	} catch {
+		copied = false;
+	}
+
+	textarea.remove();
+	return copied;
 }
 
 function findCodeBlockPositions(state: EditorView["state"]): CodeBlockPosition[] {
@@ -453,7 +556,8 @@ function buildToggleDecorations(
 			})
 		);
 
-		if (block.endLine > block.startLine) {
+		// 只有当代码块超过10行时，才在底部也显示按钮组，否则只显示顶部的按钮
+		if (block.endLine - block.startLine > 10) {
 			builder.add(
 				block.endPos,
 				block.endPos,
