@@ -302,7 +302,19 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			const activeSystemPromptName = plugin.settings.savedSystemPrompts?.find(p => p.id === plugin.settings.activeSystemPromptId)?.name ?? '';
 			const activeSoulPromptName = plugin.settings.savedSoulPrompts?.find(p => p.id === plugin.settings.activeSoulPromptId)?.name ?? '';
 			const memoryStatus = plugin.memoryManager.isActive() ? 'ON' : 'OFF';
-			const requestedThinking = enableThinking;
+			const metaParts: string[] = [
+				`>**Model** \`${plugin.settings.aiModel}\` `,
+				activeSystemPromptName ? `>**System** \`${activeSystemPromptName}\`` : '',
+				activeSoulPromptName ? `>**Soul** \`${activeSoulPromptName}\`` : '',
+				`>**Memory** \`${memoryStatus}\``,
+				`>**Thinking** \`${enableThinking ? 'ON' : 'OFF'}\``,
+			].filter(Boolean) as string[];
+			const metaBlock = `${metaParts.join('\n')}\n`;
+
+			// 无论是否开启 thinking，都先把 meta 块（包含引用的 Wiki 链接和模型配置参数）写入到回答前的位置。
+			const prefixText = wikiLinkLineCount > 0
+				? `\n---\n${wikiLinksText}\n${metaBlock}\n`
+				: `\n---\n${metaBlock}\n`;
 
 			const outputStart = { line: cursor.line, ch: newLineLength };
 			let outputEnd = { ...outputStart };
@@ -319,33 +331,9 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				};
 			};
 
-			const shouldRenderThinking = () => requestedThinking || reasoningText.length > 0;
-
-			const getThinkingStatus = () => {
-				if (requestedThinking) {
-					return "ON";
-				}
-				return reasoningText.length > 0 ? "AUTO" : "OFF";
-			};
-
-			const buildPrefixText = () => {
-				const metaParts: string[] = [
-					`>**Model** \`${plugin.settings.aiModel}\` `,
-					activeSystemPromptName ? `>**System** \`${activeSystemPromptName}\`` : '',
-					activeSoulPromptName ? `>**Soul** \`${activeSoulPromptName}\`` : '',
-					`>**Memory** \`${memoryStatus}\``,
-					`>**Thinking** \`${getThinkingStatus()}\``,
-				].filter(Boolean) as string[];
-				const metaBlock = `${metaParts.join('\n')}\n`;
-
-				return wikiLinkLineCount > 0
-					? `\n---\n${wikiLinksText}\n${metaBlock}\n`
-					: `\n---\n${metaBlock}\n`;
-			};
-
 			const buildOutput = () => {
-				const parts: string[] = [buildPrefixText()];
-				if (shouldRenderThinking()) {
+				const parts: string[] = [prefixText];
+				if (enableThinking) {
 					const thinkingBody = reasoningText || "思考过程...";
 					parts.push(`\`\`\`text\n${thinkingBody}\n\`\`\`\n\n`);
 					parts.push("---\n\n");
@@ -388,6 +376,10 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				enableThinking,
 				{
 					onReasoning: (chunk) => {
+						if (!enableThinking) {
+							return;
+						}
+
 						reasoningText += chunk;
 						renderOutput();
 					},

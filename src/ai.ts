@@ -373,7 +373,6 @@ export async function streamDashScope(
 										chunkLength: reasoningChunk.length,
 									});
 								}
-								callbacks.onReasoning(reasoningChunk);
 							}
 						}
 
