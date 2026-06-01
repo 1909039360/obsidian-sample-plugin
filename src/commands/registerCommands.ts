@@ -296,7 +296,8 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				: "";
 			const wikiLinkLineCount = hasExplicitDocContexts ? documentContexts.length : 0;
 
-			const enableThinking = plugin.settings.enableThinking;
+			// let enableThinking = plugin.settings.enableThinking;
+			let enableThinking = false;
 
 			// 构造回答前的元信息块，记录模型、提示词、记忆开关与 thinking 状态。
 			const activeSystemPromptName = plugin.settings.savedSystemPrompts?.find(p => p.id === plugin.settings.activeSystemPromptId)?.name ?? '';
@@ -317,17 +318,22 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				: `\n---\n${metaBlock}\n`;
 			
 			// 开启 thinking 时在 meta 块之后预留“思考过程”代码块，否则直接进入答案区。
-			if (enableThinking) {
-				editor.replaceRange(`${prefixText}\`\`\`text\n思考过程...\n`, {
-					line: cursor.line,
-					ch: newLineLength,
-				});
-			} else {
-				editor.replaceRange(prefixText, {
-					line: cursor.line,
-					ch: newLineLength,
-				});
-			}
+			// if (enableThinking) {
+			// 	editor.replaceRange(`${prefixText}\`\`\`text\n思考过程...\n`, {
+			// 		line: cursor.line,
+			// 		ch: newLineLength,
+			// 	});
+			// } else {
+			// 	editor.replaceRange(prefixText, {
+			// 		line: cursor.line,
+			// 		ch: newLineLength,
+			// 	});
+			// }
+
+			editor.replaceRange(prefixText, {
+				line: cursor.line,
+				ch: newLineLength,
+			});
 
 			// 预设光标向下偏移量以匹配初始插入内容
 			// 若有 wikiLinksText -> wikiLinkLineCount + 1行
@@ -339,7 +345,10 @@ export function registerPluginCommands(plugin: CommandHost): void {
 			let currentCh = 0;
 			let isAnswering = !enableThinking;
 			let accumulatedAnswer = "";
-
+            let accumulatedReasoning = "";
+			let isFirst = true;
+			let isContentFirst = true;
+			let enableThinkingAuto = enableThinking;
 			// 统一的流式写入函数，兼容 CodeMirror 和普通 editor 接口。
 			const insertStreamChunk = (text: string) => {
 				const cm = (editor as any).cm;
@@ -378,11 +387,21 @@ export function registerPluginCommands(plugin: CommandHost): void {
 				enableThinking,
 				{
 					onReasoning: (chunk) => {
+						accumulatedReasoning += chunk;
 						// thinking 模式下，先把模型的思考内容写进代码块。
-						if (!enableThinking) {
+						if (accumulatedReasoning.length > 0 ) {
+							enableThinkingAuto = true;
+						}
+						if (!enableThinkingAuto  ) {
 							return;
 						}
-
+						if(isFirst == true ){
+							insertStreamChunk("\`\`\`text\n思考过程...\n");
+							currentLine += 4;
+							currentCh = 0;
+							isFirst = false;
+						}
+						
 						insertStreamChunk(chunk);
 						const lines = chunk.split("\n");
 						if (lines.length > 1) {
@@ -396,8 +415,19 @@ export function registerPluginCommands(plugin: CommandHost): void {
 					onContent: (chunk) => {
 						// 收集最终回答正文，并在首个正文分片到来时关闭思考区、切换到答案区。
 						accumulatedAnswer += chunk;
-						if (!isAnswering && enableThinking && accumulatedAnswer.length > 0 ) {
+						if (!isAnswering && enableThinkingAuto && accumulatedAnswer.length > 0 ) {
 							isAnswering = true;
+							
+							// 如果之前有输出过 reasoning（也就是当前光标位置已经在思考代码块里），我们需要闭合它；
+							// 如果模型压根就没吐出任何 onReasoning 片段（如 qwen3.7-max），直接就来了 content（比如自己吐出了 "思考过程：... \n\n 正文..."），
+							// 我们同样需要把最开始预留打开的 ```text 思考过程\n 给闭合掉。
+							const thinkingTransition = `\n\`\`\`\n\n---\n\n`;
+							insertStreamChunk(thinkingTransition);
+							currentLine += 4;
+							currentCh = 0;
+						}
+						if ( isContentFirst  && accumulatedAnswer.length > 0  && !isFirst) {
+							isContentFirst = false;
 							
 							// 如果之前有输出过 reasoning（也就是当前光标位置已经在思考代码块里），我们需要闭合它；
 							// 如果模型压根就没吐出任何 onReasoning 片段（如 qwen3.7-max），直接就来了 content（比如自己吐出了 "思考过程：... \n\n 正文..."），

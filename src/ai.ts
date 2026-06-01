@@ -207,8 +207,9 @@ export async function streamDashScope(
 			stream: true
 		};
 		if (enableThinking) {
-			requestBody.enable_thinking = true;
+			requestBody.enable_thinking = enableThinking;
 		}
+		
 
 		// 使用浏览器原生 fetch 发起流式请求。
 		// 当前接口遵循 OpenAI-compatible 格式，因此 body 中使用 messages / stream / model 等字段。
