@@ -391,6 +391,7 @@ export function registerPluginCommands(plugin: CommandHost): void {
 						// thinking 模式下，先把模型的思考内容写进代码块。
 						if (accumulatedReasoning.length > 0 ) {
 							enableThinkingAuto = true;
+							isAnswering = !enableThinkingAuto;
 						}
 						if (!enableThinkingAuto  ) {
 							return;
@@ -415,20 +416,9 @@ export function registerPluginCommands(plugin: CommandHost): void {
 					onContent: (chunk) => {
 						// 收集最终回答正文，并在首个正文分片到来时关闭思考区、切换到答案区。
 						accumulatedAnswer += chunk;
-						if (!isAnswering && enableThinkingAuto && accumulatedAnswer.length > 0 ) {
+						if (!isAnswering && enableThinkingAuto && accumulatedAnswer.length > 0  && isContentFirst  ) {
 							isAnswering = true;
-							
-							// 如果之前有输出过 reasoning（也就是当前光标位置已经在思考代码块里），我们需要闭合它；
-							// 如果模型压根就没吐出任何 onReasoning 片段（如 qwen3.7-max），直接就来了 content（比如自己吐出了 "思考过程：... \n\n 正文..."），
-							// 我们同样需要把最开始预留打开的 ```text 思考过程\n 给闭合掉。
-							const thinkingTransition = `\n\`\`\`\n\n---\n\n`;
-							insertStreamChunk(thinkingTransition);
-							currentLine += 4;
-							currentCh = 0;
-						}
-						if (!isAnswering && isContentFirst  && accumulatedAnswer.length > 0  && !isFirst) {
 							isContentFirst = false;
-							
 							// 如果之前有输出过 reasoning（也就是当前光标位置已经在思考代码块里），我们需要闭合它；
 							// 如果模型压根就没吐出任何 onReasoning 片段（如 qwen3.7-max），直接就来了 content（比如自己吐出了 "思考过程：... \n\n 正文..."），
 							// 我们同样需要把最开始预留打开的 ```text 思考过程\n 给闭合掉。
@@ -437,6 +427,17 @@ export function registerPluginCommands(plugin: CommandHost): void {
 							currentLine += 4;
 							currentCh = 0;
 						}
+						// if (!isAnswering && isContentFirst  && accumulatedAnswer.length > 0  && !isFirst) {
+						// 	isContentFirst = false;
+							
+						// 	// 如果之前有输出过 reasoning（也就是当前光标位置已经在思考代码块里），我们需要闭合它；
+						// 	// 如果模型压根就没吐出任何 onReasoning 片段（如 qwen3.7-max），直接就来了 content（比如自己吐出了 "思考过程：... \n\n 正文..."），
+						// 	// 我们同样需要把最开始预留打开的 ```text 思考过程\n 给闭合掉。
+						// 	const thinkingTransition = `\n\`\`\`\n\n---\n\n`;
+						// 	insertStreamChunk(thinkingTransition);
+						// 	currentLine += 4;
+						// 	currentCh = 0;
+						// }
 
 						insertStreamChunk(chunk);
 						const lines = chunk.split("\n");
