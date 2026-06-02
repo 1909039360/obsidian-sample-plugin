@@ -202,11 +202,11 @@ export class AITaskView extends ItemView {
 			new Notice(this.plugin.settings.enableThinking ? "✓ Thinking 模式已开启" : "✗ Thinking 模式已关闭");
 		};
 
-		this.renderModelSelector(this.contextPageContainer);
-		this.contextPageContainer.createEl("hr", { cls: "ai-context-divider" });
 		this.renderActiveContexts(this.contextPageContainer);
 		this.contextPageContainer.createEl("hr", { cls: "ai-context-divider" });
 		this.renderDocumentContexts(this.contextPageContainer);
+		this.contextPageContainer.createEl("hr", { cls: "ai-context-divider" });
+		this.renderModelSelector(this.contextPageContainer);
 	}
 
 	private renderPromptPage() {
