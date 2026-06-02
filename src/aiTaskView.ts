@@ -202,6 +202,8 @@ export class AITaskView extends ItemView {
 			new Notice(this.plugin.settings.enableThinking ? "✓ Thinking 模式已开启" : "✗ Thinking 模式已关闭");
 		};
 
+		this.renderModelSelector(this.contextPageContainer);
+		this.contextPageContainer.createEl("hr", { cls: "ai-context-divider" });
 		this.renderActiveContexts(this.contextPageContainer);
 		this.contextPageContainer.createEl("hr", { cls: "ai-context-divider" });
 		this.renderDocumentContexts(this.contextPageContainer);
@@ -211,8 +213,6 @@ export class AITaskView extends ItemView {
 		this.renderPromptConfig(this.promptPageContainer, "System Prompt", "savedSystemPrompts", "activeSystemPromptId");
 		this.promptPageContainer.createEl("hr", { cls: "ai-prompt-divider" });
 		this.renderPromptConfig(this.promptPageContainer, "Soul Prompt (回答个性)", "savedSoulPrompts", "activeSoulPromptId");
-		this.promptPageContainer.createEl("hr", { cls: "ai-prompt-divider" });
-		this.renderModelSelector(this.promptPageContainer);
 		this.promptPageContainer.createEl("hr", { cls: "ai-prompt-divider" });
 		this.renderCustomPromptConfig(this.promptPageContainer);
 	}
